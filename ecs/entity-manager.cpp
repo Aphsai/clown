@@ -1,4 +1,5 @@
 #include "entity-manager.hpp"
+#include <assert.h>
 
 EntityManager::EntityManager() {
     for (Entity entity = 0; entity < MAX_ENTITIES; entity++) {
@@ -14,7 +15,7 @@ Entity EntityManager::create_entity() {
     return id;
 }
 
-void EntityManager::destroy_entity() {
+void EntityManager::destroy_entity(Entity entity) {
     assert(entity < MAX_ENTITIES && "Entity out of range.");
     signatures[entity].reset();
     available_entities.push(entity);

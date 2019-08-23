@@ -68,4 +68,4 @@ class Coordinator {
         std::unique_ptr<ComponentManager> component_manager;
         std::unique_ptr<EntityManager> entity_manager;
         std::unique_ptr<SystemManager> system_manager;
-}
+};

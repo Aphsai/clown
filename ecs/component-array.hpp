@@ -2,6 +2,7 @@
 #include "ecs.hpp"
 #include <unordered_map>
 #include <array>
+#include <assert.h>
 
 class IComponentArray {
     public:

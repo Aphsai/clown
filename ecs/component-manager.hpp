@@ -2,6 +2,8 @@
 #include "ecs.hpp"
 #include "component-array.hpp"
 #include <unordered_map>
+#include <assert.h>
+#include <memory>
 
 class ComponentManager {
     public:

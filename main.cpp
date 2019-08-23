@@ -4,15 +4,13 @@
 #define GL3_PROTOTYPES 1
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
-#include "ecs/system-manager.hpp"
-#include "ecs/entity-manager.hpp"
-#include "ecs/component-manager.hpp"
 #include "ecs/coordinator.hpp"
 
-std::string program_name = "OPENGL TEST";
 
 SDL_Window *main_window;
 SDL_GLContext main_context;
+std::string program_name = "OPENGL TEST";
+Coordinator coordinator;
 
 bool set_opengl_attributes();
 void run_game();
