@@ -1,3 +1,4 @@
+#pragma once
 #include "ecs.hpp"
 #include "system-manager.hpp"
 #include "entity-manager.hpp"
@@ -11,7 +12,7 @@ class Coordinator {
             system_manager = std::make_unique<SystemManager>();
         }
 
-        inline void destroy_entity() {
+        inline void destroy_entity(Entity entity) {
             entity_manager->destroy_entity(entity);
             component_manager->entity_destroyed(entity);
             system_manager->entity_destroyed(entity);
@@ -23,7 +24,7 @@ class Coordinator {
 
         template<typename T> 
         inline void register_component() {
-            component_manager->register_commponent<T>();
+            component_manager->register_component<T>();
         }
 
         template<typename T>

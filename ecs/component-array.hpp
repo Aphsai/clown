@@ -1,3 +1,4 @@
+#pragma once
 #include "ecs.hpp"
 #include <unordered_map>
 #include <array>
@@ -46,4 +47,4 @@ class ComponentArray : public IComponentArray {
         std::unordered_map<Entity, size_t> entity_to_index;
         std::unordered_map<size_t, Entity> index_to_entity;
         size_t size;
-}
+};

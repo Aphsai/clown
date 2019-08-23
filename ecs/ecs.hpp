@@ -1,3 +1,7 @@
+#pragma once
+#include <set>
+#include <bitset>
+
 using Entity = std::uint32_t;
 const Entity MAX_ENTITIES = 5000;
 
@@ -7,6 +11,7 @@ const ComponentType MAX_COMPONENTS = 32;
 using Signature = std::bitset<MAX_COMPONENTS>;
 
 class System {
-    std::set<Entity> entities;
-}
+    public: 
+        std::set<Entity> entities;
+};
 

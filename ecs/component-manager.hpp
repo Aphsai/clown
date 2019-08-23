@@ -1,5 +1,7 @@
+#pragma once
 #include "ecs.hpp"
 #include "component-array.hpp"
+#include <unordered_map>
 
 class ComponentManager {
     public:
@@ -43,8 +45,8 @@ class ComponentManager {
 
         template<typename T>
         std::shared_ptr<ComponentArray<T>> get_component_array() {
-            const char* type_name = tyepid(T).name();
-            return std::static_point_cast<ComponentArray<T>>(component_arrays[type_name]);
+            const char* type_name = typeid(T).name();
+            return std::static_pointer_cast<ComponentArray<T>>(component_arrays[type_name]);
         }
 
         std::unordered_map<const char*, ComponentType> component_types;

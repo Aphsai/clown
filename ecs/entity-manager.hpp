@@ -1,4 +1,7 @@
+#pragma once
 #include "ecs.hpp"
+#include <queue>
+#include <array>
 
 class EntityManager {
     public:

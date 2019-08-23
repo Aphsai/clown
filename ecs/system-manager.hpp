@@ -1,4 +1,8 @@
+#pragma once
 #include "ecs.hpp"
+#include <unordered_map>
+#include <memory>
+#include <assert.h>
 
 class SystemManager {
     public:
@@ -31,7 +35,7 @@ class SystemManager {
                 auto const& system = pair.second;
                 auto const& system_signature = signatures[type];
 
-                if ((entity_signature && system_signature) == system_signature) {
+                if ((entity_signature & system_signature) == system_signature) {
                     system->entities.insert(entity);
                 } else {
                     system->entities.erase(entity);
