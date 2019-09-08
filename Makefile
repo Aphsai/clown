@@ -1,7 +1,7 @@
 PROG = clown
 CC = ccache g++
 CPPFLAGS = -w -lSDL2 -lSDL2_image -lSDL2_gfx -lGL -lGLEW -Wall 
-OBJS = main.o ./ecs/system-manager.hpp ./ecs/component-manager.hpp ./ecs/coordinator.hpp entity-manager.o ./ecs/ecs.hpp
+OBJS = main.o ./ecs/system-manager.hpp ./ecs/component-manager.hpp ./ecs/coordinator.hpp entity-manager.o ./ecs/ecs.hpp game.o
 
 $(PROG) : $(OBJS)
 	$(CC) $(CPPFLAGS) -o $(PROG) $(OBJS)
@@ -17,5 +17,5 @@ ecs.hpp.gch : ecs/ecs.hpp
 	$(CC) $(CPPFLAGS) -c ecs/ecs.hpp
 system-manager.hpp.gch : ecs/system-manager.hpp
 	$(CC) $(CPPFLAGS) -c ecs/system-manager.hpp
-
-
+game.o : game.cpp game.hpp
+	$(CC) $(CPPFLAGS) -c game.cpp
