@@ -1,6 +1,6 @@
 PROG = clown
 CC = ccache g++
-CPPFLAGS = -w -lSDL2 -lSDL2_image -lSDL2_gfx -lGL -lGLEW -Wall 
+CPPFLAGS = -w -Wall 
 OBJS = main.o ./ecs/system-manager.hpp ./ecs/component-manager.hpp ./ecs/coordinator.hpp entity-manager.o ./ecs/ecs.hpp game.o
 
 $(PROG) : $(OBJS)
