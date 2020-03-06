@@ -1,21 +1,14 @@
-PROG = clown
-CC = ccache g++
-CPPFLAGS = -w -Wall 
-OBJS = main.o ./ecs/system-manager.hpp ./ecs/component-manager.hpp ./ecs/coordinator.hpp entity-manager.o ./ecs/ecs.hpp game.o
+CFLAGS = -std=c++17 -I$(VULKAN_SDK)/include
 
-$(PROG) : $(OBJS)
-	$(CC) $(CPPFLAGS) -o $(PROG) $(OBJS)
-main.o : main.cpp
-	$(CC) $(CPPFLAGS) -c main.cpp
-entity-manager.o : ecs/entity-manager.cpp ecs/entity-manager.hpp
-	$(CC) $(CPPFLAGS) -c ecs/entity-manager.cpp ecs/entity-manager.hpp
-component-manager.hpp.gch : ecs/component-manager.hpp
-	$(CC) $(CPPFLAGS) -c ecs/component-manager.hpp
-coordinator.hpp.gch : ecs/coordinator.hpp
-	$(CC) $(CPPFLAGS) -c ecs/coordinator.hpp
-ecs.hpp.gch : ecs/ecs.hpp
-	$(CC) $(CPPFLAGS) -c ecs/ecs.hpp
-system-manager.hpp.gch : ecs/system-manager.hpp
-	$(CC) $(CPPFLAGS) -c ecs/system-manager.hpp
-game.o : game.cpp game.hpp
-	$(CC) $(CPPFLAGS) -c game.cpp
+LDFLAGS = -L$(VULKAN_SDK)/lib `pkg-config --static --libs glfw3` -lvulkan
+
+VulkanTest: glfw-test.cpp
+	g++ $(CFLAGS) -o VulkanTest glfw-test.cpp $(LDFLAGS)
+
+.PHONY: test clean
+
+test: VulkanTest
+	./VulkanTest
+
+clean:
+	rm -f VulkanTest
