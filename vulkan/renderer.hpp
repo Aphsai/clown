@@ -24,15 +24,15 @@ class Renderer {
 
         Window* openWindow(uint32_t size_x, uint32_t size_y, std::string name);
 
-        VkInstance instance;
-        VkPhysicalDevice gpu;
-        VkDevice device;
-        VkQueue queue;
-        uint32_t graphics_family_index;
+        VkInstance instance = VK_NULL_HANDLE;
+        VkPhysicalDevice gpu = VK_NULL_HANDLE;
+        VkDevice device = VK_NULL_HANDLE;
+        VkQueue queue = VK_NULL_HANDLE;
+        uint32_t graphics_family_index = 0;
         VkPhysicalDeviceProperties gpu_properties = {};
         VkPhysicalDeviceMemoryProperties gpu_memory_properties = {};
 
-        Window* window;
+        Window* window = nullptr;
 
         std::vector<const char*> instance_layers;
         std::vector<const char*> instance_extensions;

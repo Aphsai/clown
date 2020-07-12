@@ -1,12 +1,13 @@
 #include "window.hpp"
 #include "renderer.hpp"
 #include "shared.hpp"
+#include "BUILD_OPTIONS.hpp"
  
 #include <assert.h>
 #include <array>
 
-Window::Window(Renderer* renderer, uint32_t size_x, uint32_t size_y, std::string name) {
-    renderer = renderer;
+Window::Window(Renderer* render, uint32_t size_x, uint32_t size_y, std::string name) {
+    renderer = render;
     surface_size_x = size_x;
     surface_size_y = size_y;
     window_name = name;
@@ -108,6 +109,11 @@ void Window::destroySurface() {
 void Window::initOSWindow() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfw_window = glfwCreateWindow(surface_size_x, surface_size_y, window_name.c_str(), nullptr, nullptr);
+    if (!glfw_window) {
+        glfwTerminate();
+        assert(0 && "GLFW could not create window.");
+        return;
+    }
     glfwGetFramebufferSize(glfw_window, (int*)&surface_size_x, (int*)&surface_size_y);
 }
 
@@ -123,7 +129,7 @@ void Window::updateOSWindow() {
 void Window::initOSSurface() {
     if (VK_SUCCESS != glfwCreateWindowSurface(renderer->instance, glfw_window, nullptr, &surface)) {
         glfwTerminate();
-        assert(0 &&"GLFW could not create window surface.");
+        assert(0 && "GLFW could not create window surface.");
         return;
     }
 }
