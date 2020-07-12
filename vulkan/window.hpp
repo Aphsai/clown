@@ -37,8 +37,8 @@ struct Window {
         void initFramebuffers();
         void destroyFramebuffers();
 
-        void initSynchronization();
-        void destroySynchronization();
+        void initSynchronizations();
+        void destroySynchronizations();
 
         Renderer *renderer = nullptr;
         VkSurfaceKHR surface = VK_NULL_HANDLE;

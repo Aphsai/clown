@@ -12,13 +12,11 @@ $(PROG): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 %.cpp.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CC) -MMD -MP $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 .PHONY: clean
 
 clean:
-	rm *.o
+	rm *.o *.d
 
 -include $(DEPS)
-
-
