@@ -18,6 +18,7 @@ $(PROG): $(OBJS)
 .PHONY: clean
 
 clean:
-	rm *.o *.d
+	find . -type f -name '*.o' -delete
+	find . -type f -name '*.d' -delete
 
 -include $(DEPS)
