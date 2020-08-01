@@ -74,6 +74,7 @@ void Renderer::initDevice() {
     vkEnumeratePhysicalDevices(instance, &gpu_count, nullptr);
     std::vector<VkPhysicalDevice> gpu_list (gpu_count);
     vkEnumeratePhysicalDevices(instance, &gpu_count, gpu_list.data());
+
     gpu = gpu_list[0];
     vkGetPhysicalDeviceProperties(gpu, &gpu_properties);
     vkGetPhysicalDeviceMemoryProperties(gpu, &gpu_memory_properties);

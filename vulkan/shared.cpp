@@ -5,8 +5,9 @@
 
 void errorCheck( VkResult result )
 {
-	if( result < 0 ) {
-		switch( result ) {
+	if(result < 0) {
+		switch(result) {
+
 		case VK_ERROR_OUT_OF_HOST_MEMORY:
 			std::cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << std::endl;
 			break;
@@ -61,7 +62,8 @@ void errorCheck( VkResult result )
 		default:
 			break;
 		}
-		assert( 0 && "Vulkan runtime error." );
+
+		assert(0 && "Vulkan runtime error.");
 	}
 }
 
@@ -82,4 +84,16 @@ uint32_t findMemoryTypeIndex(const VkPhysicalDeviceMemoryProperties * gpu_memory
 
 void errorCheck( VkResult result ) {};
 
+
 #endif // BUILD_ENABLE_VULKAN_RUNTIME_DEBUG
+
+std::vector<char> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) throw std::runtime_error("failed to open file!");
+    size_t file_size = (size_t) file.tellg();
+    std::vector<char> buffer(file_size);
+    file.seekg(0);
+    file.read(buffer.data(), file_size);
+    file.close();
+    return buffer;
+}
