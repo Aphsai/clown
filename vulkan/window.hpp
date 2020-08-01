@@ -84,6 +84,7 @@ struct Window {
         VkRenderPass render_pass = VK_NULL_HANDLE;
         VkCommandPool command_pool = VK_NULL_HANDLE;
         VkBuffer vertex_buffer = VK_NULL_HANDLE;
+        VkDeviceMemory vertex_buffer_memory = VK_NULL_HANDLE;
 
         bool stencil_available = false;
         bool window_should_run = true;

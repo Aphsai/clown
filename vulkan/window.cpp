@@ -6,9 +6,10 @@
  
 #include <assert.h>
 #include <array>
+#include <cstring>
 
 const std::vector<Vertex> vertices = { 
-    {{0.0f, 0.5f}, {1.0f, 0.0f, 0.0f}}, 
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}}, 
     {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}}, 
     {{-0.5, 0.5f}, {0.0f, 0.0f, 1.0f}} 
 };
@@ -36,6 +37,7 @@ Window::~Window() {
     vkQueueWaitIdle(renderer->queue);
     destroySynchronizations();
     destroyCommandBuffers();
+    destroyVertexBuffer();
     destroyCommandPool();
     destroyFramebuffers();
     destroyGraphicsPipeline();
@@ -596,7 +598,10 @@ void Window::initCommandBuffers() {
 
         vkCmdBeginRenderPass(command_buffers[x], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(command_buffers[x], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
-        vkCmdDraw(command_buffers[x], 3, 1, 0, 0);
+        VkBuffer vertex_buffers[] = { vertex_buffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(command_buffers[x], 0, 1, vertex_buffers, offsets);
+        vkCmdDraw(command_buffers[x], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
         vkCmdEndRenderPass(command_buffers[x]);
 
         errorCheck(vkEndCommandBuffer(command_buffers[x]));
@@ -615,10 +620,26 @@ void Window::initVertexBuffer() {
     buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     errorCheck(vkCreateBuffer(renderer->device, &buffer_info, nullptr, &vertex_buffer));
+
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(renderer->device, vertex_buffer, &memory_requirements);
+    VkMemoryAllocateInfo allocate_info {};
+    allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocate_info.allocationSize = memory_requirements.size;
+    allocate_info.memoryTypeIndex = findMemoryTypeIndex(&(renderer->gpu_memory_properties), &memory_requirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    errorCheck(vkAllocateMemory(renderer->device, &allocate_info, nullptr, &vertex_buffer_memory));
+    vkBindBufferMemory(renderer->device, vertex_buffer, vertex_buffer_memory, 0);
+
+    void* data; 
+    vkMapMemory(renderer->device, vertex_buffer_memory, 0, buffer_info.size, 0, &data);
+    memcpy(data, vertices.data(), (size_t) buffer_info.size);
+    vkUnmapMemory(renderer->device, vertex_buffer_memory);
 }
 
 void Window::destroyVertexBuffer() {
     vkDestroyBuffer(renderer->device, vertex_buffer, nullptr);
+    vkFreeMemory(renderer->device, vertex_buffer_memory, nullptr);
 }
 
 VkShaderModule Window::initShaderModule(const std::vector<char>& code) {
