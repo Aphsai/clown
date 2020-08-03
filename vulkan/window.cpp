@@ -1,3 +1,4 @@
+#define VMA_IMPLEMENTATION
 #include "window.hpp"
 #include "renderer.hpp"
 #include "shared.hpp"
@@ -28,6 +29,7 @@ Window::Window(Renderer* render, uint32_t size_x, uint32_t size_y, std::string n
     initGraphicsPipeline();
     initFramebuffers();
     initCommandPool();
+    initVMAAllocator();
     initVertexBuffer();
     initCommandBuffers();
     initSynchronizations();
@@ -38,6 +40,7 @@ Window::~Window() {
     destroySynchronizations();
     destroyCommandBuffers();
     destroyVertexBuffer();
+    destroyVMAAllocator();
     destroyCommandPool();
     destroyFramebuffers();
     destroyGraphicsPipeline();
@@ -46,6 +49,7 @@ Window::~Window() {
     destroySwapchain();
     destroySurface();
     destroyOSWindow();
+
 }
 
 void Window::recreateSwapchain() {
@@ -420,8 +424,8 @@ void Window::initGraphicsPipeline() {
     auto binding_description = Vertex::getBindingDescription();
     auto attribute_descriptions = Vertex::getAttributeDescriptions();
     
-    VkShaderModule vert_shader_module = initShaderModule(vert_shader_code);
-    VkShaderModule frag_shader_module = initShaderModule(frag_shader_code);
+    VkShaderModule vert_shader_module = createShaderModule(vert_shader_code);
+    VkShaderModule frag_shader_module = createShaderModule(frag_shader_code);
 
     VkPipelineShaderStageCreateInfo vert_shader_stage_info {};
     vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -613,36 +617,73 @@ void Window::destroyCommandBuffers() {
 }
 
 void Window::initVertexBuffer() {
-    VkBufferCreateInfo buffer_info {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.size = sizeof(vertices[0]) * vertices.size();
-    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    errorCheck(vkCreateBuffer(renderer->device, &buffer_info, nullptr, &vertex_buffer));
-
-    VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(renderer->device, vertex_buffer, &memory_requirements);
-    VkMemoryAllocateInfo allocate_info {};
-    allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.allocationSize = memory_requirements.size;
-    allocate_info.memoryTypeIndex = findMemoryTypeIndex(&(renderer->gpu_memory_properties), &memory_requirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    errorCheck(vkAllocateMemory(renderer->device, &allocate_info, nullptr, &vertex_buffer_memory));
-    vkBindBufferMemory(renderer->device, vertex_buffer, vertex_buffer_memory, 0);
+    VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+    
+    VkBuffer staging_buffer;
+    VmaAllocation staging_allocation = createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer);
 
     void* data; 
-    vkMapMemory(renderer->device, vertex_buffer_memory, 0, buffer_info.size, 0, &data);
-    memcpy(data, vertices.data(), (size_t) buffer_info.size);
-    vkUnmapMemory(renderer->device, vertex_buffer_memory);
+    vmaMapMemory(allocator, staging_allocation, &data);
+    memcpy(data, vertices.data(), (size_t) buffer_size);
+    vmaUnmapMemory(allocator, staging_allocation);
+
+    allocation = createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer);
+
+    // Copy buffers
+    VkCommandBufferAllocateInfo allocate_info {};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandPool = command_pool;
+    allocate_info.commandBufferCount = 1;
+
+    VkCommandBuffer command_buffer;
+    vkAllocateCommandBuffers(renderer->device, &allocate_info, &command_buffer);
+    
+    VkCommandBufferBeginInfo begin_info {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+
+    VkBufferCopy copy_region {};
+    copy_region.srcOffset = 0;
+    copy_region.dstOffset = 0;
+    copy_region.size = buffer_size;
+    vkCmdCopyBuffer(command_buffer, staging_buffer, vertex_buffer, 1, &copy_region);
+
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+
+    vkQueueSubmit(renderer->queue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(renderer->queue);
+
+    vkFreeCommandBuffers(renderer->device, command_pool, 1, &command_buffer);
+    vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
 }
+
 
 void Window::destroyVertexBuffer() {
-    vkDestroyBuffer(renderer->device, vertex_buffer, nullptr);
-    vkFreeMemory(renderer->device, vertex_buffer_memory, nullptr);
+    vmaDestroyBuffer(allocator, vertex_buffer, allocation);
 }
 
-VkShaderModule Window::initShaderModule(const std::vector<char>& code) {
+void Window::initVMAAllocator() {
+    VmaAllocatorCreateInfo allocator_info {};
+    allocator_info.physicalDevice = renderer->gpu;
+    allocator_info.device = renderer->device;
+    allocator_info.instance = renderer->instance;
+
+    vmaCreateAllocator(&allocator_info, &allocator);
+}
+
+void Window::destroyVMAAllocator() {
+    vmaDestroyAllocator(allocator);
+}
+
+VkShaderModule Window::createShaderModule(const std::vector<char>& code) {
     VkShaderModuleCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     create_info.codeSize = code.size();
@@ -650,4 +691,21 @@ VkShaderModule Window::initShaderModule(const std::vector<char>& code) {
     VkShaderModule shader_module;
     errorCheck(vkCreateShaderModule(renderer->device, &create_info, nullptr, &shader_module));
     return shader_module;
+}
+
+
+VmaAllocation Window::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer) {
+    VkBufferCreateInfo buffer_info {};
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.size = size;
+    buffer_info.usage = usage;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo allocate_info {};
+    allocate_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocate_info.requiredFlags = properties;
+    
+    VmaAllocation allocation;
+    errorCheck(vmaCreateBuffer(allocator, &buffer_info, &allocate_info, &buffer, &allocation, nullptr));
+    return allocation;
 }

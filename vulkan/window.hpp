@@ -1,5 +1,7 @@
 #pragma once
 #include "platform.hpp"
+#include "vk_mem_alloc.h"
+
 #include <vector>
 #include <string>
 
@@ -53,7 +55,11 @@ struct Window {
         void initCommandBuffers();
         void destroyCommandBuffers();
 
-        VkShaderModule initShaderModule(const std::vector<char>& code);
+        void initVMAAllocator();
+        void destroyVMAAllocator();
+
+        VkShaderModule createShaderModule(const std::vector<char>& code);
+        VmaAllocation createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer);
 
         Renderer *renderer = nullptr;
 
@@ -90,5 +96,7 @@ struct Window {
         bool window_should_run = true;
 
         GLFWwindow *glfw_window = nullptr;
+        VmaAllocator allocator;
+        VmaAllocation allocation;
 
 };
