@@ -1,4 +1,3 @@
 #pragma once
-
 #define BUILD_ENABLE_VULKAN_DEBUG 
 #define BUILD_ENABLE_VULKAN_RUNTIME_DEBUG 

@@ -14,6 +14,7 @@
 int main() {
 	Renderer r;
 	auto w = r.openWindow( 800, 600, "CLOWN" );
+    r.initialize();
     
     VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
 	VkSemaphore render_complete_semaphore = VK_NULL_HANDLE;
@@ -25,7 +26,7 @@ int main() {
 
 	while(r.run()) {
 
-		w->beginRender();
+		r.beginRender();
 
         VkSubmitInfo submit_info {};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -35,7 +36,7 @@ int main() {
         submit_info.pWaitSemaphores = nullptr;
         submit_info.pWaitDstStageMask = nullptr;
         submit_info.commandBufferCount = 1;
-        submit_info.pCommandBuffers = &(w->command_buffers[w->active_swapchain_image_id]);
+        submit_info.pCommandBuffers = &(r.command_buffers[r.active_swapchain_image_id]);
         
         VkSemaphore signal_semaphores[] = { render_complete_semaphore };
         submit_info.signalSemaphoreCount = 1;
@@ -43,11 +44,12 @@ int main() {
 
         errorCheck(vkQueueSubmit(r.queue, 1, &submit_info, VK_NULL_HANDLE));
 
-		w->endRender({ render_complete_semaphore });
+		r.endRender({ render_complete_semaphore });
 
 	}
 
 	vkQueueWaitIdle(r.queue);
+    r.destroy();
 
 	vkDestroySemaphore(r.device, render_complete_semaphore, nullptr );
 	vkDestroySemaphore(r.device, image_available_semaphore, nullptr );
