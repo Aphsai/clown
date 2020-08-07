@@ -85,12 +85,23 @@ std::vector<char> readFile(const std::string& filename) {
     return buffer;
 }
 
-uint32_t findMemoryTypeIndex(const VkPhysicalDeviceMemoryProperties* gpu_memory_properties, const VkMemoryRequirements* memory_requirements, const VkMemoryPropertyFlags required_properties )
-{
-	for( uint32_t i=0; i < gpu_memory_properties->memoryTypeCount; ++i ) {
-		if( memory_requirements->memoryTypeBits & ( 1 << i ) ) {
-			if( ( gpu_memory_properties->memoryTypes[ i ].propertyFlags & required_properties ) == required_properties ) {
-				return i;
+uint32_t findMemoryType(VkPhysicalDevice gpu, uint32_t type_filter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(gpu, &memory_properties);
+    for (uint32_t x = 0; x < memory_properties.memoryTypeCount; x++) {
+        if  ((type_filter & (1 << x)) && (memory_properties.memoryTypes[x].propertyFlags & properties) == properties) {
+            return x;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
+uint32_t findMemoryTypeIndex(const VkPhysicalDeviceMemoryProperties* gpu_memory_properties, const VkMemoryRequirements* memory_requirements, const VkMemoryPropertyFlags required_properties ) {
+	for (uint32_t x = 0; x < gpu_memory_properties->memoryTypeCount; x++) {
+		if (memory_requirements->memoryTypeBits & (1 << x)) {
+			if( (gpu_memory_properties->memoryTypes[x].propertyFlags & required_properties) == required_properties) {
+				return x;
 			}
 		}
 	}

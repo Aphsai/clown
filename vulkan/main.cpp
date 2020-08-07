@@ -12,9 +12,8 @@
 
 
 int main() {
-	Renderer r;
-	auto w = r.openWindow( 800, 600, "CLOWN" );
-    r.initialize();
+	Renderer r (800, 600, "CLOWN");
+	auto w = r.window;
     
     VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
 	VkSemaphore render_complete_semaphore = VK_NULL_HANDLE;
@@ -27,6 +26,8 @@ int main() {
 	while(r.run()) {
 
 		r.beginRender();
+
+        r.updateUniformBuffer(r->active_swapchain_image_id);
 
         VkSubmitInfo submit_info {};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -49,7 +50,6 @@ int main() {
 	}
 
 	vkQueueWaitIdle(r.queue);
-    r.destroy();
 
 	vkDestroySemaphore(r.device, render_complete_semaphore, nullptr );
 	vkDestroySemaphore(r.device, image_available_semaphore, nullptr );

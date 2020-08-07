@@ -9,6 +9,7 @@ Window::Window(Renderer* render, uint32_t size_x, uint32_t size_y, std::string n
     renderer = render;
     window_name = name;
     initOSWindow();
+    initOSSurface();
 }
 
 Window::~Window() {
