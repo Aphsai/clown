@@ -99,7 +99,7 @@ void Renderer::recreateSwapchain() {
     initRenderPass();
     initGraphicsPipeline();
     initFramebuffers();
-    initUniformBuffers();
+    initUniformBuffer();
     initCommandBuffers();
 }
 
@@ -415,10 +415,9 @@ void Renderer::initSwapchain() {
 	swapchain_create_info.minImageCount = swapchain_image_count;
 	swapchain_create_info.imageFormat = surface_format.format;
 	swapchain_create_info.imageColorSpace = surface_format.colorSpace;
-	swapchain_create_info.imageExtent.width	= surface_size_x;
-	swapchain_create_info.imageExtent.height = surface_size_y;
+	swapchain_create_info.imageExtent = swapchain_extent;
 	swapchain_create_info.imageArrayLayers = 1;
-	swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swapchain_create_info.queueFamilyIndexCount = 0;
 	swapchain_create_info.pQueueFamilyIndices = nullptr;
@@ -438,11 +437,11 @@ void Renderer::destroySwapchain() {
 
 
 void Renderer::initSwapchainImages() {
-    swapchain_images.resize(swapchain_image_count);
-    swapchain_image_views.resize(swapchain_image_count);
+    swapchain_images.resize(NUM_FRAME_DATA);
+    swapchain_image_views.resize(NUM_FRAME_DATA);
 
     errorCheck(vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, swapchain_images.data()));
-    for (uint32_t x = 0; x < swapchain_image_count; x++) {
+    for (uint32_t x = 0; x < NUM_FRAME_DATA; x++) {
         VkImageViewCreateInfo image_view_create_info {};
         image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         image_view_create_info.image = swapchain_images[x];
@@ -458,6 +457,8 @@ void Renderer::initSwapchainImages() {
         image_view_create_info.subresourceRange.baseArrayLayer = 0;
         image_view_create_info.subresourceRange.layerCount = 1;
         errorCheck(vkCreateImageView(device, &image_view_create_info, nullptr, &swapchain_image_views[x]));
+
+        //TODO: OFFLOAD SWAPCHAIN IMAGES TO IMAGE CLASS?
     }
 }
 
@@ -494,38 +495,7 @@ void Renderer::initDepthStencilImage() {
 		stencil_available = true;
 	}
 
-	VkImageCreateInfo image_create_info {};
-	image_create_info.sType					= VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	image_create_info.flags					= 0;
-	image_create_info.imageType				= VK_IMAGE_TYPE_2D;
-	image_create_info.format				= depth_stencil_format;
-	image_create_info.extent.width			= surface_size_x;
-	image_create_info.extent.height			= surface_size_y;
-	image_create_info.extent.depth			= 1;
-	image_create_info.mipLevels				= 1;
-	image_create_info.arrayLayers			= 1;
-	image_create_info.samples				= VK_SAMPLE_COUNT_1_BIT;
-	image_create_info.tiling				= VK_IMAGE_TILING_OPTIMAL;
-	image_create_info.usage					= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	image_create_info.sharingMode			= VK_SHARING_MODE_EXCLUSIVE;
-	image_create_info.queueFamilyIndexCount	= VK_QUEUE_FAMILY_IGNORED;
-	image_create_info.pQueueFamilyIndices	= nullptr;
-	image_create_info.initialLayout			= VK_IMAGE_LAYOUT_UNDEFINED;
-
-	errorCheck(vkCreateImage(device, &image_create_info, nullptr, &depth_stencil_image));
-
-	VkMemoryRequirements image_memory_requirements {};
-	vkGetImageMemoryRequirements(device, depth_stencil_image, &image_memory_requirements);
-
-	uint32_t memory_index = findMemoryTypeIndex(&(gpu_memory_properties), &image_memory_requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	VkMemoryAllocateInfo memory_allocate_info {};
-	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memory_allocate_info.allocationSize = image_memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = memory_index;
-
-	errorCheck(vkAllocateMemory(device, &memory_allocate_info, nullptr, &depth_stencil_image_memory));
-	errorCheck(vkBindImageMemory(device, depth_stencil_image, depth_stencil_image_memory, 0));
+    depth_stencil_allocation = createImage(swapchain_extent.width, swapchain_extent.height, depth_stencil_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depth_stencil_image);
 
 	VkImageViewCreateInfo image_view_create_info {};
 	image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -546,13 +516,12 @@ void Renderer::initDepthStencilImage() {
 }
 
 void Renderer::destroyDepthStencilImage() {
-	vkDestroyImageView(device, depth_stencil_image_view, nullptr);
-	vkFreeMemory(device, depth_stencil_image_memory, nullptr);
-	vkDestroyImage(device, depth_stencil_image, nullptr);
+	vmaDestroyImage(allocator, depth_stencil_image, depth_stencil_allocation);
 }
 
 void Renderer::initRenderPass() {
-	std::array<VkAttachmentDescription, 1> attachments {};
+	std::array<VkAttachmentDescription, 2> attachments {};
+    // Color
 	attachments[0].flags = 0;
 	attachments[0].format = surface_format.format;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -560,15 +529,27 @@ void Renderer::initRenderPass() {
 	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    // Depth stencil
+	attachments[1].format = depth_stencil_format;
+	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	std::array<VkAttachmentReference, 1> sub_pass_0_color_attachments {};
 	sub_pass_0_color_attachments[0].attachment = 0;
 	sub_pass_0_color_attachments[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentReference depth_stencil_reference {};
+    depth_stencil_reference.attachment = 1;
+	depth_stencil_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 	std::array<VkSubpassDescription, 1> sub_passes {};
 	sub_passes[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	sub_passes[0].colorAttachmentCount = sub_pass_0_color_attachments.size();
 	sub_passes[0].pColorAttachments	= sub_pass_0_color_attachments.data();	
+    sub_passes[0].pDepthStencilAttachment = &depth_stencil_reference;
 
     VkSubpassDependency dependency {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -595,20 +576,21 @@ void Renderer::destroyRenderPass() {
 }
 
 void Renderer::initFramebuffers() {
-	framebuffers.resize(swapchain_image_count);
+	framebuffers.resize(NUM_FRAME_DATA);
+	std::array<VkImageView, 2> attachments {};
+    assert(depth_stencil_image && "No depth stencil image");
+
 	for (uint32_t x = 0; x < swapchain_image_count; x++) {
-		std::array<VkImageView, 1> attachments {};
-		attachments[0]	= swapchain_image_views[x];
-
-		VkFramebufferCreateInfo framebuffer_create_info {};
-		framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebuffer_create_info.renderPass = render_pass;
-		framebuffer_create_info.attachmentCount	= attachments.size();
-		framebuffer_create_info.pAttachments = attachments.data();
-		framebuffer_create_info.width = surface_size_x;
-		framebuffer_create_info.height = surface_size_y;
-		framebuffer_create_info.layers = 1;
-
+	    VkFramebufferCreateInfo framebuffer_create_info {};
+	    framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	    framebuffer_create_info.renderPass = render_pass;
+	    framebuffer_create_info.attachmentCount	= attachments.size();
+	    framebuffer_create_info.pAttachments = attachments.data();
+	    framebuffer_create_info.width = surface_size_x;
+	    framebuffer_create_info.height = surface_size_y;
+	    framebuffer_create_info.layers = 1;
+	    attachments[0]	= swapchain_image_views[x];
+        attachments[1] = depth_stencil_image_view;
 		errorCheck(vkCreateFramebuffer(device, &framebuffer_create_info, nullptr, &framebuffers[x]));
 	}
 }
@@ -617,6 +599,18 @@ void Renderer::destroyFramebuffers() {
 	for (auto f : framebuffers) {
 		vkDestroyFramebuffer(device, f, nullptr);
 	}
+}
+
+void Renderer::initSemaphores() {
+    acquire_semaphores.resize(NUM_FRAME_DATA);
+    render_complete_semaphores.resize(NUM_FRAME_DATA);
+
+    VkSemaphoreCreateInfo semaphore_create_info {};
+    semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    for (int x = 0; x < NUM_FRAME_DATA; x++) {
+        errorCheck(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &acquire_semaphores[x]));
+        errorCheck(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &render_complete_semaphores[x]));
+    }
 }
 
 void Renderer::initSynchronizations() {
@@ -775,8 +769,8 @@ void Renderer::destroyGraphicsPipeline() {
 void Renderer::initCommandPool() {
     VkCommandPoolCreateInfo pool_info {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = graphics_family_index;
-    pool_info.flags = 0;
     errorCheck(vkCreateCommandPool(device, &pool_info, nullptr, &command_pool));
 }
 
@@ -785,7 +779,8 @@ void Renderer::destroyCommandPool() {
 }
 
 void Renderer::initCommandBuffers() {
-    command_buffers.resize(framebuffers.size());
+    command_buffers.resize(NUM_FRAME_DATA);
+
     VkCommandBufferAllocateInfo alloc_info {};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool = command_pool;
@@ -793,35 +788,11 @@ void Renderer::initCommandBuffers() {
     alloc_info.commandBufferCount = (uint32_t) command_buffers.size();
 
     errorCheck(vkAllocateCommandBuffers(device, &alloc_info, command_buffers.data()));
-
+    
+    VkFenceCreateInfo fence_create_info {};
+    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     for (size_t x = 0; x < command_buffers.size(); x++) {
-        VkCommandBufferBeginInfo begin_info {};
-        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begin_info.flags = 0;
-        begin_info.pInheritanceInfo = nullptr;
-
-        errorCheck(vkBeginCommandBuffer(command_buffers[x], &begin_info));
-
-        VkRenderPassBeginInfo render_pass_info {};
-        render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        render_pass_info.renderPass = render_pass;
-        render_pass_info.framebuffer = framebuffers[x];
-        render_pass_info.renderArea.offset = {0, 0};
-        render_pass_info.renderArea.extent = swapchain_extent;
-
-        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 0.0f };
-        render_pass_info.clearValueCount = 1;
-        render_pass_info.pClearValues = &clear_color;
-
-        vkCmdBeginRenderPass(command_buffers[x], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(command_buffers[x], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
-        VkBuffer vertex_buffers[] = { vertex_buffer };
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(command_buffers[x], 0, 1, vertex_buffers, offsets);
-        vkCmdDraw(command_buffers[x], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-        vkCmdEndRenderPass(command_buffers[x]);
-
-        errorCheck(vkEndCommandBuffer(command_buffers[x]));
+        errorCheck(vkCreateFence(device, &fence_create_info, nullptr, &command_buffer_fences[x]));
     }
 }
 
@@ -922,7 +893,7 @@ void Renderer::initTextureImage() {
 
     stbi_image_free(pixels);
 
-    createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_image, texture_image_memory);
+    //createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_image, texture_image_memory);
     transitionLayout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copyBufferToImage(staging_buffer, texture_image, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     transitionLayout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -1050,16 +1021,7 @@ void Renderer::initDescriptorSets() {
 
 void Renderer::initIndexBuffer() { }
 
-void Renderer::initUniformBuffer() {
-    VkDeviceSize buffer_size = sizeof(UniformBufferObject);
-
-    uniform_buffers.resize(swapchain_images.size());
-    uniform_buffer_allocators.resize(swapchain_images.size());
-
-    for (size_t x = 0; x < swapchain_images.size(); x++) {
-        uniform_buffer_allocators[x] = createBuffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniform_buffers[x]);
-    }
-}
+void Renderer::initUniformBuffer() { }
 
 VkShaderModule Renderer::createShaderModule(const std::vector<char>& code) {
     VkShaderModuleCreateInfo create_info{};
@@ -1088,7 +1050,7 @@ VmaAllocation Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage
     return allocation;
 }
 
-void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &image_memory) {
+VmaAllocation Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image) {
     VkImageCreateInfo image_info {};
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.imageType = VK_IMAGE_TYPE_2D;
@@ -1103,18 +1065,14 @@ void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkI
     image_info.usage = usage;
     image_info.samples = VK_SAMPLE_COUNT_1_BIT;
     image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    errorCheck(vkCreateImage(device, &image_info, nullptr, &texture_image));
-    VkMemoryRequirements memory_requirements;
-    vkGetImageMemoryRequirements(device, texture_image, &memory_requirements);
-
-    VkMemoryAllocateInfo allocate_info {};
-    allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.allocationSize = memory_requirements.size;
-    allocate_info.memoryTypeIndex = findMemoryType(gpu, memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    errorCheck(vkAllocateMemory(device, &allocate_info, nullptr, &image_memory));
-    vkBindImageMemory(device, image, image_memory, 0);
+    
+    VmaAllocationCreateInfo allocate_info {};
+    allocate_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocate_info.requiredFlags = properties;
+    
+    VmaAllocation allocation;
+    errorCheck(vmaCreateImage(allocator, &image_info, &allocate_info, &texture_image, &allocation, nullptr));
+    return allocation;
 }
 
 void Renderer::transitionLayout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout) {

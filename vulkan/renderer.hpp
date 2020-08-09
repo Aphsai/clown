@@ -57,7 +57,8 @@ class Renderer {
         void initDescriptorSetLayout();
         void initDescriptorPool();
         void initDescriptorSets();
-
+        void initSemaphores();
+        void destroySemaphores();
         void initIndexBuffer();
         void initUniformBuffer();
 
@@ -66,8 +67,8 @@ class Renderer {
         VkShaderModule createShaderModule(const std::vector<char>& code);
         VmaAllocation createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer);
         VkCommandBuffer beginSingleCommand();
+        VmaAllocation createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image);
         void endSingleCommand(VkCommandBuffer command_buffer);
-        void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &image_memory);
         void transitionLayout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
         void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
@@ -75,7 +76,7 @@ class Renderer {
         VkPipeline graphics_pipeline = VK_NULL_HANDLE;
         VkFence swapchain_image_available = VK_NULL_HANDLE;
         VkImage depth_stencil_image = VK_NULL_HANDLE;
-        VkDeviceMemory depth_stencil_image_memory = VK_NULL_HANDLE;
+        VmaAllocation depth_stencil_allocation = VK_NULL_HANDLE;
         VkImageView depth_stencil_image_view = VK_NULL_HANDLE;
         VkFormat depth_stencil_format = VK_FORMAT_UNDEFINED;
         VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
@@ -128,6 +129,9 @@ class Renderer {
         std::vector<VkDescriptorSet> descriptor_sets;
         std::vector<VkBuffer> uniform_buffers;
         std::vector<VmaAllocation> uniform_buffer_allocators;
+        std::vector<VkSemaphore> render_complete_semaphores;
+        std::vector<VkSemaphore> acquire_semaphores;
+        std::vector<VkFence> command_buffer_fences;
 
         // DEBUG
         VkDebugReportCallbackEXT debug_report = VK_NULL_HANDLE;

@@ -27,7 +27,6 @@ int main() {
 
 		r.beginRender();
 
-        r.updateUniformBuffer(r->active_swapchain_image_id);
 
         VkSubmitInfo submit_info {};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
