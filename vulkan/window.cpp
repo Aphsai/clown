@@ -5,11 +5,10 @@
 #include <array>
 #include <cstring>
 
-Window::Window(Renderer* render, uint32_t size_x, uint32_t size_y, std::string name) {
-    renderer = render;
+Window::Window(Renderer* renderer, uint32_t size_x, uint32_t size_y, std::string name) {
     window_name = name;
-    initOSWindow();
-    initOSSurface();
+    initOSWindow(renderer);
+    initOSSurface(renderer);
 }
 
 Window::~Window() {
@@ -26,7 +25,7 @@ bool Window::update() {
     return window_should_run;
 }
 
-void Window::initOSWindow() {
+void Window::initOSWindow(Renderer* renderer) {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfw_window = glfwCreateWindow(renderer->surface_size_x, renderer->surface_size_y, window_name.c_str(), nullptr, nullptr);
     if (!glfw_window) {
@@ -42,7 +41,7 @@ void Window::updateOSWindow() {
     if (glfwWindowShouldClose(glfw_window)) close();
 }
 
-void Window::initOSSurface() {
+void Window::initOSSurface(Renderer* renderer) {
     if (VK_SUCCESS != glfwCreateWindowSurface(renderer->instance, glfw_window, nullptr, &(renderer->surface))) {
         glfwTerminate();
         assert(0 && "GLFW could not create window surface.");

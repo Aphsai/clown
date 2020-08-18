@@ -1,6 +1,5 @@
 #pragma once
 #include "platform.hpp"
-
 #include <vector>
 #include <string>
 
@@ -13,15 +12,14 @@ struct Window {
         void close();
         bool update();
 
-        void initOSWindow();
+        void initOSWindow(Renderer*);
         void destroyOSWindow();
         void updateOSWindow();
-        void initOSSurface();
+        void initOSSurface(Renderer*);
 
         std::string window_name;
         bool window_should_run = true;
 
 
         GLFWwindow* glfw_window = nullptr;
-        Renderer* renderer = nullptr;
 };
