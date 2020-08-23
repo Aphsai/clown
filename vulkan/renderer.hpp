@@ -5,8 +5,6 @@
 #include <vector>
 #include <string>
 
-struct Vertex;
-
 class Renderer {
     public:
         Renderer (uint32_t size_x, uint32_t size_y, std::string name);
@@ -18,13 +16,25 @@ class Renderer {
         void destroyInstance();
         void initDevice();
         void destroyDevice();
+        void initAllocator();
+        void destroyAllocator();
         void setupDebug();
         void initDebug();
         void destroyDebug();
-        void initSurface();
-        void destroySurface();
+        void initSwapchain();
+        void destroySwapchain();
+        void initWindow();
+        void destroyWindow();
+        void initRenderPass();
+        void destroyRenderPass();
+        void initImageViews();
+        void destroyImageViews();
+        void initFramebuffers();
+        void destroyFramebuffers();
+        void drawBegin();
+        void drawEnd();
         
-
+        // Instance
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         VkInstance instance = VK_NULL_HANDLE;
         VkPhysicalDevice gpu = VK_NULL_HANDLE;
@@ -32,12 +42,34 @@ class Renderer {
         VkQueue graphics_queue = VK_NULL_HANDLE;
         VkQueue present_queue = VK_NULL_HANDLE;
 
-        VkImageLayout image_layout = {};
-        VkPhysicalDeviceProperties gpu_properties = {};
-        VkPhysicalDeviceMemoryProperties gpu_memory_properties = {};
+        // Swapchain
+        VkSwapchainKHR swapchain;
+        VkFormat swapchain_format;
+        std::vector<VkImage> swapchain_images;
         VkSurfaceFormatKHR surface_format = {};
         VkSurfaceCapabilitiesKHR surface_capabilities = {};
         VkExtent2D swapchain_extent = {};
+        VkPresentModeKHR present_mode = {};
+
+        // Renderpass
+        VkRenderPass render_pass;
+
+        // RenderTexture
+        std::vector<VkImageView> image_views;
+        std::vector<VkFramebuffer> framebuffers;
+
+        // Memory Management
+        VmaAllocator allocator;
+
+        // Command Buffers
+        std::vector<VkCommandBuffer> command_buffers;
+        std::vector<VmaAllocation> command_allocations;
+
+        VkImageLayout image_layout = {};
+        VkPhysicalDeviceProperties gpu_properties = {};
+        VkPhysicalDeviceMemoryProperties gpu_memory_properties = {};
+
+        std::string window_name;
 
         uint32_t graphics_family_index = -1;
         uint32_t present_family_index = -1;

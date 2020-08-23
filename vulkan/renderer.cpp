@@ -8,6 +8,7 @@
 #include "renderer.hpp"
 #include "shared.hpp"
 #include "window.hpp"
+#include "swapchain.hpp"
 
 #include <cstdlib>
 #include <assert.h>
@@ -18,6 +19,11 @@
 
 
 Renderer::Renderer(uint32_t size_x, uint32_t size_y, std::string name) {
+    surface_size_x = size_x;
+    surface_size_y = size_y;
+    window_name = name;
+    
+
     initPlatform();
     setupLayersAndExtensions();
     setupDebug();
@@ -25,14 +31,25 @@ Renderer::Renderer(uint32_t size_x, uint32_t size_y, std::string name) {
     initDebug();
     initWindow();
     initDevice();
-    initSurface();
+    initSwapchain();
+    initRenderPass();
+    initImageViews();
+    initFramebuffers();
 }
 
 Renderer::~Renderer() {
 }
 
+bool Renderer::run() {
+    return window->update();
+}
+
 void Renderer::initWindow() {
-    window = new Window(this, size_x, size_y, name);
+    window = new Window(this, surface_size_x, surface_size_y, window_name);
+}
+
+void Renderer::destroyWindow() {
+    delete window;
 }
 
 void Renderer::setupLayersAndExtensions() {
@@ -89,7 +106,7 @@ void Renderer::initDevice() {
             VkBool32 present_support = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(device, x, surface, &present_support);
             if (present_support) present_family_index = x;
-            if (present_family_index > 0 && graphics_family_index > 0) break;
+            if (present_family_index > -1 && graphics_family_index > -1) break;
         }
 
         uint32_t extension_count = 0;
@@ -100,6 +117,7 @@ void Renderer::initDevice() {
         std::set<std::string> required_extensions(device_extensions.begin(), device_extensions.end());
         for (const auto& extension : available_extensions) required_extensions.erase(extension.extensionName);
         if (required_extensions.empty()) {
+
             VkSurfaceCapabilitiesKHR capabilities; 
             std::vector<VkSurfaceFormatKHR> formats;
             std::vector<VkPresentModeKHR> present_modes;
@@ -133,6 +151,7 @@ void Renderer::initDevice() {
         }
 
     }
+
     vkGetPhysicalDeviceProperties(gpu, &gpu_properties);
     vkGetPhysicalDeviceMemoryProperties(gpu, &gpu_memory_properties);
 
@@ -165,7 +184,7 @@ void Renderer::initDevice() {
     device_create_info.ppEnabledExtensionNames  = device_extensions.data();
 
     errorCheck(vkCreateDevice(gpu, &device_create_info, nullptr, &device));
-    vkGetDeviceQueue(device, graphics_family_index, 0, &queue);
+    vkGetDeviceQueue(device, graphics_family_index, 0, &graphics_queue);
 
 }
 
@@ -173,6 +192,236 @@ void Renderer::destroyDevice() {
     vkDestroyDevice(device, nullptr);
     device = nullptr;
 }
+
+void Renderer::initAllocator() {
+    VmaAllocatorCreateInfo allocator_info {};
+    allocator_info.physicalDevice = gpu;
+    allocator_info.device = device;
+    allocator_info.instance = instance;
+
+    vmaCreateAllocator(&allocator_info, &allocator);
+}
+
+void Renderer::destroyAllocator() {
+    vmaDestroyAllocator(allocator);
+}
+
+void Renderer::initSwapchain() {
+    window->initOSSurface(this);
+    VkBool32 WSI_supported = false;
+    errorCheck(vkGetPhysicalDeviceSurfaceSupportKHR(gpu, graphics_family_index, surface, &WSI_supported));
+    if (!WSI_supported) {
+        assert(0 && "WSI not supported");
+        std::exit(-1);
+    }
+
+    errorCheck(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surface_capabilities));
+    swapchain_extent = Swapchain::chooseExtent(surface_capabilities);
+
+    uint32_t format_count = 0;
+    errorCheck(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, nullptr));
+    if (format_count == 0) {
+        assert(0 && "Surface formats missing");
+        std::exit(-1);
+    }
+    std::vector<VkSurfaceFormatKHR> formats(format_count);
+    errorCheck(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, formats.data()));
+    surface_format = Swapchain::chooseSwapchainFormat(formats);
+
+    uint32_t present_mode_count = 0;
+    std::vector<VkPresentModeKHR> present_modes;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(gpu,  surface, &present_mode_count, nullptr);
+    present_modes.resize(present_mode_count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, surface, &present_mode_count, present_modes.data());
+    present_mode = Swapchain::choosePresentMode(present_modes);
+    
+    swapchain_image_count = surface_capabilities.minImageCount;
+    swapchain_image_count = std::max(surface_capabilities.maxImageCount, swapchain_image_count);
+
+    VkSwapchainCreateInfoKHR create_info {};
+    create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    create_info.surface = surface;
+    create_info.minImageCount = swapchain_image_count;
+    create_info.imageFormat = surface_format.format;
+    create_info.imageColorSpace = surface_format.colorSpace;
+    create_info.imageExtent = swapchain_extent;
+    create_info.imageArrayLayers = 1;
+    create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    create_info.preTransform = surface_capabilities.currentTransform;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode = present_mode;
+    create_info.clipped = VK_TRUE;
+
+    if (graphics_family_index != present_family_index) {
+        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        create_info.queueFamilyIndexCount = 2;
+        create_info.pQueueFamilyIndices = nullptr;
+    } else {
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.queueFamilyIndexCount = 0;
+        create_info.pQueueFamilyIndices = nullptr;
+    }
+
+    errorCheck(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain));
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, nullptr);
+    swapchain_images.resize(swapchain_image_count);
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, swapchain_images.data());
+    swapchain_format = surface_format.format;
+}
+
+void Renderer::destroySwapchain() {
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    vkDestroySurfaceKHR(instance, surface, nullptr);
+}
+
+void Renderer::initRenderPass() {
+    VkAttachmentDescription color_attachment = {};
+    color_attachment.format = swapchain_format;
+    color_attachment.samples - VK_SAMPLE_COUNT_1_BIT;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference color_attachment_ref = {};
+    color_attachment_ref.attachment = 0;
+    color_attachment_ref.layout - VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &color_attachment_ref;
+
+    std::array<VkAttachmentDescription, 1> attachments = { color_attachment };
+
+    VkRenderPassCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    create_info.attachmentCount = static_cast<uint32_t> (attachments.size());
+    create_info.pAttachments = attachments.data();
+    create_info.subpassCount = 1;
+    create_info.pSubpasses = &subpass;
+
+    errorCheck(vkCreateRenderPass(device, &create_info, nullptr, &render_pass));
+}
+
+void Renderer::destroyRenderPass() {
+    vkDestroyRenderPass(device, render_pass, nullptr);
+}
+
+void Renderer::initImageViews() {
+    image_views.resize(swapchain_images.size());
+    for (size_t x = 0; x < swapchain_images.size(); x++) {
+        VkImageViewCreateInfo view_info {};
+        view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        view_Info.image = swapchain_images[x];
+        view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        view_info.subresourceRange.baseMipLevel = 0;
+        view_info.subresourceRange.levelCount = 1;
+        view_info.subresourceRange.baseArrayLayer = 0;
+        view_info.subresourceRange.layerCount = 1;
+
+        errorCheck(vkCreateImageView(device, &view_info, nullptr, &image_views[x]));
+    }
+}
+
+void Renderer::destroyImageViews() {
+    for (auto image_view : image_views) {
+        vkDestroyImageView(device, image_view, nullptr);
+    }
+}
+
+void Renderer::initFramebuffers() {
+    framebuffers.resize(swapchain_images.size());
+
+    for (size_t x = 0; x < swapchain_images.size(); x++) {
+        std::array<VkImageView, 1> attachments = { image_views[x] };
+
+        VkFramebufferCreateInfo create_info {};
+        create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        create_info.renderPass = render_pass;
+        create_info.attachmentCount = attachments.size();
+        create_info.pAttachments = attachments.data();
+        create_info.width = swapchain_extent.width;
+        create_info.height = swapchain_extent.height;
+        create_info.layers = 1;
+
+        errorCheck(vkCreateFramebuffer(device, &create_info, nullptr, &framebuffers[x]));
+
+    }
+}
+
+void Renderer::destroyFramebuffers() {
+    for (auto framebuffer : framebuffers) {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    }
+}
+
+void Renderer::createCommandBuffers() {
+    command_buffers.resize(swapchain_image_count);
+    command_allocations.resize(swapchain_image_count);
+}
+
+void Renderer::beginCommandBuffer(VKCommandBuffer command_buffer) {
+    
+    VkCommandBufferBeginInfo begin_info {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
+    errorCheck(vkBeginCommandBuffer(command_buffer, &begin_info));
+}
+
+void Renderer::endCommandBuffer(VkCommandBuffer command_buffer) {
+    errorCheck(vkEndCommandBuffer(command_buffer);
+}
+
+void Renderer::beginRenderPass(std::array<VkClearValue, 1> clear_values, VkCommandBuffer command_buffer, VkFramebuffer framebuffer, VkExtent2D extent) {
+    VkRenderPassBeginInfo begin_info {};
+    begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    begin_info.render_pass = render_pass;
+    begin_info.framebuffer = framebuffer;
+    begin_info.renderArea.offset = { 0, 0 };
+    begin_info.renderArea.extent = extent;
+    begin_info.pClearValues = clear_values.data();
+    begin_info.clearValueCount = clear_values.size();
+
+    vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void Renderer::endRenderPass(VkCommandBuffer command_buffer) {
+    vkCmdEndRenderPass(command_buffer);
+}
+
+void Renderer::drawBegin() {
+    vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(), nullptr, VK_NULL_HANDLE, &active_swapchain_image_id);
+    beginCommandBuffer(command_buffers[active_swapchain_image_id]);
+    VkClearValue clear_color { 1.0f, 1.0f, 1.0f, 1.0f };
+    std::array<VkClearValue, 1> clear_values = { clear_color };
+    beginRenderPass(clear_values, command_buffers[active_swapchain_image_id], framebuffers[active_swapchain_image_id], swapchain_extent);
+}
+
+void Renderer::drawEnd() {
+    endRenderPass();
+    endCommandBuffer(command_buffers[active_swapchain_image_id]);
+    VkSubmitInfo submit_info {};
+    submit_info.sType
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = command_buffers[active_swapchain_image_id];
+    vkQueueSubmit(graphics_queue, 1, &submit_info, nullptr);
+
+    VkPresentInfoKHR present_info {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchain;
+    present_info.pImageIndices = &active_swapchain_image_id;
+
+    vkQueuePresentKHR(present_queue, &present_info);
+    vkQueueWaitIdle(present_queue);
+
+}
+
 
 #ifdef BUILD_ENABLE_VULKAN_DEBUG
 
@@ -244,39 +493,3 @@ void Renderer::initDebug() {};
 void Renderer::destroyDebug() {};
 
 #endif 
-
-void Renderer::initSurface() {
-    window->initOSSurface(this);
-    VkBool32 WSI_supported = false;
-    errorCheck(vkGetPhysicalDeviceSurfaceSupportKHR(gpu, graphics_family_index, surface, &WSI_supported));
-    if (!WSI_supported) {
-        assert(0 && "WSI not supported");
-        std::exit(-1);
-    }
-
-    errorCheck(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surface_capabilities));
-    if (surface_capabilities.currentExtent.width < UINT32_MAX) {
-        surface_size_x = surface_capabilities.currentExtent.width;
-        surface_size_y = surface_capabilities.currentExtent.height;
-    }
-
-    uint32_t format_count = 0;
-    errorCheck(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, nullptr));
-    if (format_count == 0) {
-        assert(0 && "Surface formats missing");
-        std::exit(-1);
-    }
-    std::vector<VkSurfaceFormatKHR> formats(format_count);
-    errorCheck(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, formats.data()));
-    if (formats[0].format == VK_FORMAT_UNDEFINED) {
-        surface_format.format = VK_FORMAT_B8G8R8A8_UNORM;
-        surface_format.colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-    } else {
-        surface_format = formats[0];
-    }
-}
-
-void Renderer::destroySurface() {
-    vkDestroySurfaceKHR(instance, surface, nullptr);
-}
-
