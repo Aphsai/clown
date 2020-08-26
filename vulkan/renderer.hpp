@@ -4,6 +4,7 @@
 #include "window.hpp"
 #include <vector>
 #include <string>
+#include <array>
 
 class Renderer {
     public:
@@ -31,8 +32,16 @@ class Renderer {
         void destroyImageViews();
         void initFramebuffers();
         void destroyFramebuffers();
+        void initCommandBuffers();
+        void destroyCommandBuffers();
+
+        
         void drawBegin();
         void drawEnd();
+        void beginCommandBuffer(VkCommandBuffer);
+        void endCommandBuffer(VkCommandBuffer);
+        void beginRenderPass(std::array<VkClearValue, 1> clear_values, VkCommandBuffer command_buffer, VkFramebuffer framebuffer, VkExtent2D extent);
+        void endRenderPass(VkCommandBuffer command_buffer);
         
         // Instance
         VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -63,7 +72,7 @@ class Renderer {
 
         // Command Buffers
         std::vector<VkCommandBuffer> command_buffers;
-        std::vector<VmaAllocation> command_allocations;
+        VkCommandPool command_pool;
 
         VkImageLayout image_layout = {};
         VkPhysicalDeviceProperties gpu_properties = {};

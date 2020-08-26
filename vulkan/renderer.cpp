@@ -31,10 +31,12 @@ Renderer::Renderer(uint32_t size_x, uint32_t size_y, std::string name) {
     initDebug();
     initWindow();
     initDevice();
+    initAllocator();
     initSwapchain();
     initRenderPass();
     initImageViews();
     initFramebuffers();
+    initCommandBuffers();
 }
 
 Renderer::~Renderer() {
@@ -165,26 +167,29 @@ void Renderer::initDevice() {
 
     float queue_priorities[] { 1.0f };
     
-    VkDeviceQueueCreateInfo device_queue_create_info {};
-    device_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    device_queue_create_info.queueFamilyIndex = graphics_family_index;
-    device_queue_create_info.queueCount = 1;
-    device_queue_create_info.pQueuePriorities = queue_priorities;
-    device_queue_create_infos.push_back(device_queue_create_info);
+    for (auto queue_family : unique_queue_families) {
+        VkDeviceQueueCreateInfo device_queue_create_info {};
+        device_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        device_queue_create_info.queueFamilyIndex = queue_family;
+        device_queue_create_info.queueCount = 1;
+        device_queue_create_info.pQueuePriorities = queue_priorities;
+        device_queue_create_infos.push_back(device_queue_create_info);
+    }
 
     VkPhysicalDeviceFeatures device_features {};
     device_features.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo device_create_info {};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_create_info.queueCreateInfoCount = 1;
-    device_create_info.pQueueCreateInfos = &device_queue_create_info;
+    device_create_info.queueCreateInfoCount = device_queue_create_infos.size();;
+    device_create_info.pQueueCreateInfos = device_queue_create_infos.data();
     device_create_info.pEnabledFeatures = &device_features;
     device_create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
     device_create_info.ppEnabledExtensionNames  = device_extensions.data();
 
     errorCheck(vkCreateDevice(gpu, &device_create_info, nullptr, &device));
     vkGetDeviceQueue(device, graphics_family_index, 0, &graphics_queue);
+    vkGetDeviceQueue(device, present_family_index, 0, &present_queue);
 
 }
 
@@ -277,7 +282,7 @@ void Renderer::destroySwapchain() {
 void Renderer::initRenderPass() {
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = swapchain_format;
-    color_attachment.samples - VK_SAMPLE_COUNT_1_BIT;
+    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -287,7 +292,7 @@ void Renderer::initRenderPass() {
 
     VkAttachmentReference color_attachment_ref = {};
     color_attachment_ref.attachment = 0;
-    color_attachment_ref.layout - VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -315,8 +320,13 @@ void Renderer::initImageViews() {
     for (size_t x = 0; x < swapchain_images.size(); x++) {
         VkImageViewCreateInfo view_info {};
         view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view_Info.image = swapchain_images[x];
+        view_info.image = swapchain_images[x];
         view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        view_info.format = swapchain_format;
+        view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
         view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         view_info.subresourceRange.baseMipLevel = 0;
         view_info.subresourceRange.levelCount = 1;
@@ -359,12 +369,29 @@ void Renderer::destroyFramebuffers() {
     }
 }
 
-void Renderer::createCommandBuffers() {
+void Renderer::initCommandBuffers() {
+    VkCommandPoolCreateInfo create_pool_info {};
+    create_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    create_pool_info.queueFamilyIndex = graphics_family_index;
+    create_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    errorCheck(vkCreateCommandPool(device, &create_pool_info, nullptr, &command_pool));
+    
     command_buffers.resize(swapchain_image_count);
-    command_allocations.resize(swapchain_image_count);
+    VkCommandBufferAllocateInfo create_buffer_info {};
+    create_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    create_buffer_info.commandPool = command_pool;
+    create_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    create_buffer_info.commandBufferCount = command_buffers.size();
+    
+    errorCheck(vkAllocateCommandBuffers(device, &create_buffer_info, command_buffers.data()));
 }
 
-void Renderer::beginCommandBuffer(VKCommandBuffer command_buffer) {
+void Renderer::destroyCommandBuffers() {
+    vkFreeCommandBuffers(device, command_pool, command_buffers.size(), command_buffers.data());
+    vkDestroyCommandPool(device, command_pool, nullptr); 
+}
+
+void Renderer::beginCommandBuffer(VkCommandBuffer command_buffer) {
     
     VkCommandBufferBeginInfo begin_info {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -374,13 +401,13 @@ void Renderer::beginCommandBuffer(VKCommandBuffer command_buffer) {
 }
 
 void Renderer::endCommandBuffer(VkCommandBuffer command_buffer) {
-    errorCheck(vkEndCommandBuffer(command_buffer);
+    errorCheck(vkEndCommandBuffer(command_buffer));
 }
 
 void Renderer::beginRenderPass(std::array<VkClearValue, 1> clear_values, VkCommandBuffer command_buffer, VkFramebuffer framebuffer, VkExtent2D extent) {
     VkRenderPassBeginInfo begin_info {};
     begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    begin_info.render_pass = render_pass;
+    begin_info.renderPass = render_pass;
     begin_info.framebuffer = framebuffer;
     begin_info.renderArea.offset = { 0, 0 };
     begin_info.renderArea.extent = extent;
@@ -403,25 +430,23 @@ void Renderer::drawBegin() {
 }
 
 void Renderer::drawEnd() {
-    endRenderPass();
+    endRenderPass(command_buffers[active_swapchain_image_id]);
     endCommandBuffer(command_buffers[active_swapchain_image_id]);
     VkSubmitInfo submit_info {};
-    submit_info.sType
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = command_buffers[active_swapchain_image_id];
+    submit_info.pCommandBuffers = &command_buffers[active_swapchain_image_id];
     vkQueueSubmit(graphics_queue, 1, &submit_info, nullptr);
 
     VkPresentInfoKHR present_info {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapchain;
+    present_info.pSwapchains = &swapchain;
     present_info.pImageIndices = &active_swapchain_image_id;
 
     vkQueuePresentKHR(present_queue, &present_info);
     vkQueueWaitIdle(present_queue);
-
 }
-
 
 #ifdef BUILD_ENABLE_VULKAN_DEBUG
 
