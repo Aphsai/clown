@@ -3,10 +3,10 @@
 #include <vector>
 #include <string>
 
-class Renderer;
+class VulkanEngine;
 
 struct Window {
-        Window(Renderer *renderer, uint32_t size_x, uint32_t size_y, std::string name);
+        Window(uint32_t size_x, uint32_t size_y, std::string name);
         ~Window();
 
         void close();

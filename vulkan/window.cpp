@@ -1,14 +1,14 @@
 #include "window.hpp"
-#include "renderer.hpp"
+#include "vulkan_engine.hpp"
  
 #include <assert.h>
 #include <array>
 #include <cstring>
 
-Window::Window(Renderer* renderer, uint32_t size_x, uint32_t size_y, std::string name) {
+Window::Window(VulkanEngine* engine, uint32_t size_x, uint32_t size_y, std::string name) {
     window_name = name;
-    initOSWindow(renderer);
-    initOSSurface(renderer);
+    initOSWindow(engine, size_x, size_y);
+    initOSSurface(size_x, size_y);
 }
 
 Window::~Window() {
@@ -25,15 +25,15 @@ bool Window::update() {
     return window_should_run;
 }
 
-void Window::initOSWindow(Renderer* renderer) {
+void Window::initOSWindow(VulkanEngine* engine, uint32_t size_x, uint32_t size_y) {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfw_window = glfwCreateWindow(renderer->surface_size_x, renderer->surface_size_y, window_name.c_str(), nullptr, nullptr);
+    glfw_window = glfwCreateWindow(size_x, size_y, window_name.c_str(), nullptr, nullptr);
     if (!glfw_window) {
         glfwTerminate();
         assert(0 && "GLFW could not create window.");
         return;
     }
-    glfwGetFramebufferSize(glfw_window, (int*)&(renderer->surface_size_x), (int*)&(renderer->surface_size_y));
+    glfwGetFramebufferSize(glfw_window, (int*)&(engine->surface_size_x), (int*)&(engine->surface_size_y));
 }
 
 void Window::updateOSWindow() {
@@ -41,8 +41,8 @@ void Window::updateOSWindow() {
     if (glfwWindowShouldClose(glfw_window)) close();
 }
 
-void Window::initOSSurface(Renderer* renderer) {
-    if (VK_SUCCESS != glfwCreateWindowSurface(renderer->instance, glfw_window, nullptr, &(renderer->surface))) {
+void Window::initOSSurface(VulkanEngine *engine) {
+    if (VK_SUCCESS != glfwCreateWindowSurface(engine->instance, glfw_window, nullptr, &(engine->surface))) {
         glfwTerminate();
         assert(0 && "GLFW could not create window surface.");
         return;
