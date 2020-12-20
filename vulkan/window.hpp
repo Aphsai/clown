@@ -6,16 +6,16 @@
 class VulkanEngine;
 
 struct Window {
-        Window(uint32_t size_x, uint32_t size_y, std::string name);
+        Window(VulkanEngine*, std::string name);
         ~Window();
 
         void close();
         bool update();
 
-        void initOSWindow(Renderer*);
+        void initOSWindow(VulkanEngine*);
         void destroyOSWindow();
         void updateOSWindow();
-        void initOSSurface(Renderer*);
+        void initOSSurface(VulkanEngine*);
 
         std::string window_name;
         bool window_should_run = true;
