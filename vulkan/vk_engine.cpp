@@ -13,6 +13,7 @@ void VulkanEngine::init() {
     initRenderPass();
     initFramebuffers();
     initSyncStructures();
+    initPipelines();
 
 
     _is_initialized = true;
@@ -66,10 +67,10 @@ void VulkanEngine::initSwapchain() {
 
 void VulkanEngine::initCommands() {
 
-   VkCommandPoolCreateInfo command_pool_info = vk_init::command_pool_create_info(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+   VkCommandPoolCreateInfo command_pool_info = vk_init::commandPoolCreateInfo(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
    errorCheck(vkCreateCommandPool(_device, &command_pool_info, nullptr, &_command_pool));
 
-   VkCommandBufferAllocateInfo command_allocate_info = vk_init::command_buffer_allocate_info(_command_pool, 1);
+   VkCommandBufferAllocateInfo command_allocate_info = vk_init::commandBufferAllocateInfo(_command_pool, 1);
    errorCheck(vkAllocateCommandBuffers(_device, &command_allocate_info, &_main_command_buffer));
 }
 
@@ -221,7 +222,21 @@ void VulkanEngine::draw() {
     _frame_number++;
 }
 
+void VulkanEngine::initPipelines() {
+    VkShaderModule triangle_frag_shader;
+    if (!loadShaderModule("../../shaders/triangle.frag.spv", &triangle_frag_shader)) {
+        std::cout << "Error when building the triangle fragment shader module" << std::endl;
+    } else {
+        std::cout << "Triangle fragment shader successfully loaded" << std::endl;
+    }
 
+    VkShaderModule triangle_vert_shader;
+    if (!loadShaderModule("../../shaders/triangle.vert.spv", &triangle_vert_shader)) {
+        std::cout << "Error when building the triangle vertex shader module" << std::endl;
+    } else {
+        std::cout << "Triangle vertex shader successfully loaded" << std::endl;
+    }
+}
 
 void VulkanEngine::run() {
     bool run = true;
@@ -232,4 +247,33 @@ void VulkanEngine::run() {
         draw();
     }
 
+}
+
+bool VulkanEngine::loadShaderModule(const char* file_path, VkShaderModule* out_shader_module) {
+    std::ifstream file(file_path, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        return false;
+    }
+
+    size_t file_size = (size_t) file.tellg();
+    
+    std::vector<uint32_t> buffer (file_size / sizeof(uint32_t));
+    file.seekg(0);
+    file.read((char*) buffer.data(), file_size);
+    file.close();
+
+    VkShaderModuleCreateInfo create_info {};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.pNext = nullptr;
+    create_info.codeSize = buffer.size() * sizeof(uint32_t);
+    create_info.pCode = buffer.data();
+
+    VkShaderModule shader_module;
+    if (vkCreateShaderModule(_device, &create_info, nullptr, &shader_module) != VK_SUCCESS) {
+        return false;
+    }
+
+    *out_shader_module = shader_module;
+    return true;
 }

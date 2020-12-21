@@ -38,11 +38,28 @@ struct VulkanEngine {
     void initRenderPass();
     void initFramebuffers();
     void initSyncStructures();
+    void initPipelines();
+
+    bool loadShaderModule(const char* file_path, VkShaderModule* out_shader_module);
 
     void init();
     void cleanup();
     void draw();
     void run();
 
+};
+
+struct PipelineBuilder {
+    std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
+    VkPipelineVertexInputStateCreateInfo _vertex_input_info;
+    VkPipelineInputAssemblyStateCreateInfo _input_assembly;
+    VkViewport _viewport;
+    VkRect2D _scissor;
+    VkPipelineRasterizationStateCreateInfo _rasterizer;
+    VkPipelineColorBlendAttachmentState _color_blend_attachment;
+    VkPipelineMultisampleStateCreateInfo _multisampling;
+    VkPipelineLayout _pipeline_layout;
+
+    VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
 
