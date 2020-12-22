@@ -10,6 +10,8 @@
 
 #include <deque>
 #include <functional>
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 
 struct PipelineBuilder {
     std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
@@ -39,6 +41,11 @@ struct DeletionQueue {
 
         deletors.clear();
     }
+};
+
+struct MeshPushConstants {
+    glm::vec4 data;
+    glm::mat4 render_matrix;
 };
 
 struct VulkanEngine {

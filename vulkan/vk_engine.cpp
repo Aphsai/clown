@@ -20,6 +20,7 @@ void VulkanEngine::init() {
     loadMeshes();
 
 
+
     _is_initialized = true;
 }
 
@@ -205,10 +206,11 @@ void VulkanEngine::draw() {
     errorCheck(vkWaitForFences(_device, 1, &_render_fence, true, 1000000000));
     errorCheck(vkResetFences(_device, 1, &_render_fence));
 
+    errorCheck(vkResetCommandBuffer(_main_command_buffer, 0));
+
     uint32_t swapchain_image_index;
     errorCheck(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, _present_semaphore, nullptr, &swapchain_image_index));
 
-    errorCheck(vkResetCommandBuffer(_main_command_buffer, 0));
     VkCommandBufferBeginInfo cmd_begin_info {};
     cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmd_begin_info.pNext = nullptr;
@@ -219,6 +221,7 @@ void VulkanEngine::draw() {
     VkClearValue clear_value;
     float flash = abs(sin(_frame_number / 120.f));
     clear_value.color = {{ 0.0f, 0.0f, flash, 1.0f }};
+
     VkRenderPassBeginInfo render_pass_begin_info {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.pNext = nullptr;
@@ -236,6 +239,17 @@ void VulkanEngine::draw() {
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(_main_command_buffer, 0, 1, &_triangle_mesh._vertex_buffer._buffer, &offset);
+
+
+    glm::vec3 cam_pos = { 0.f, 0.f, -2.f };
+    glm::mat4 view = glm::translate(glm::mat4(1.f), cam_pos);
+    glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    projection[1][1]  *= -1;
+    glm::mat4 model = glm::rotate(glm::mat4 { 1.0f }, glm::radians(_frame_number * 0.4f), glm::vec3(0, 1, 0));
+    glm::mat4 mesh_matrix = projection * view * model;
+    MeshPushConstants constants;
+    constants.render_matrix = mesh_matrix;
+    vkCmdPushConstants(_main_command_buffer, _triangle_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
     vkCmdDraw(_main_command_buffer, _triangle_mesh._vertices.size(), 1, 0, 0);
 
     vkCmdEndRenderPass(_main_command_buffer);
@@ -264,6 +278,7 @@ void VulkanEngine::draw() {
     present_info.pWaitSemaphores = &_render_semaphore;
     present_info.waitSemaphoreCount = 1;
     present_info.pImageIndices = &swapchain_image_index;
+
     errorCheck(vkQueuePresentKHR(_graphics_queue, &present_info));
 
     _frame_number++;
@@ -286,22 +301,23 @@ void VulkanEngine::initPipelines() {
     }
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = vk_init::pipelineLayoutCreateInfo();
+    
+    VkPushConstantRange push_constant;
+    push_constant.offset =0 ;
+    push_constant.size = sizeof(MeshPushConstants);
+
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pipeline_layout_info.pPushConstantRanges = &push_constant;
+    pipeline_layout_info.pushConstantRangeCount = 1;
+
     errorCheck(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_triangle_pipeline_layout));
 
     PipelineBuilder pipeline_builder;
 
-    VertexInputDescription vertex_description = Vertex::getVertexDescription();
-    pipeline_builder._vertex_input_info.pVertexAttributeDescriptions = vertex_description.attributes.data();
-    pipeline_builder._vertex_input_info.vertexAttributeDescriptionCount = vertex_description.attributes.size();
-
-    pipeline_builder._vertex_input_info.pVertexBindingDescriptions = vertex_description.bindings.data();
-    pipeline_builder._vertex_input_info.vertexBindingDescriptionCount = vertex_description.bindings.size();
-
-    pipeline_builder._shader_stages.push_back(vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, triangle_vert_shader));
-    pipeline_builder._shader_stages.push_back(vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangle_frag_shader));
-
     pipeline_builder._vertex_input_info = vk_init::vertexInputStateCreateInfo();
+
     pipeline_builder._input_assembly = vk_init::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
     pipeline_builder._viewport.x = 0.0f;
     pipeline_builder._viewport.y = 0.0f;
     pipeline_builder._viewport.width = (float)_window_extent.width;
@@ -313,17 +329,28 @@ void VulkanEngine::initPipelines() {
     pipeline_builder._scissor.extent = _window_extent;
 
     pipeline_builder._rasterizer = vk_init::rasterizationStateCreateInfo(VK_POLYGON_MODE_FILL);
+
     pipeline_builder._multisampling = vk_init::multisampleStateCreateInfo();
+
     pipeline_builder._color_blend_attachment = vk_init::colorBlendAttachmentState();
+
     pipeline_builder._pipeline_layout = _triangle_pipeline_layout;
+
+    VertexInputDescription vertex_description = Vertex::getVertexDescription();
+    pipeline_builder._vertex_input_info.pVertexAttributeDescriptions = vertex_description.attributes.data();
+    pipeline_builder._vertex_input_info.vertexAttributeDescriptionCount = vertex_description.attributes.size();
+
+    pipeline_builder._vertex_input_info.pVertexBindingDescriptions = vertex_description.bindings.data();
+    pipeline_builder._vertex_input_info.vertexBindingDescriptionCount = vertex_description.bindings.size();
+
+    pipeline_builder._shader_stages.push_back(vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, triangle_vert_shader));
+    pipeline_builder._shader_stages.push_back(vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangle_frag_shader));
 
     _triangle_pipeline = pipeline_builder.buildPipeline(_device, _render_pass);
 
     vkDestroyShaderModule(_device, triangle_frag_shader, nullptr);
     vkDestroyShaderModule(_device, triangle_vert_shader, nullptr);
 
-    pipeline_builder._shader_stages.clear();
-    
     _main_deletion_queue.push_function(
             [=]() {
                 vkDestroyPipeline(_device, _triangle_pipeline, nullptr);
@@ -338,7 +365,6 @@ void VulkanEngine::run() {
     while(run) {
         window->update();
         run = window->window_should_run;
-
         draw();
     }
 
@@ -396,7 +422,13 @@ void VulkanEngine::uploadMesh(Mesh& mesh) {
     VmaAllocationCreateInfo vma_alloc_info {};
     vma_alloc_info.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
-    errorCheck(vmaCreateBuffer(_allocator, &buffer_info, &vma_alloc_info, &mesh._vertex_buffer._buffer, &mesh._vertex_buffer._allocation, nullptr));
+    errorCheck(vmaCreateBuffer(_allocator, 
+                &buffer_info, 
+                &vma_alloc_info, 
+                &mesh._vertex_buffer._buffer, 
+                &mesh._vertex_buffer._allocation, 
+                nullptr));
+
     _main_deletion_queue.push_function(
             [=]() {
                 vmaDestroyBuffer(_allocator, mesh._vertex_buffer._buffer, mesh._vertex_buffer._allocation);
