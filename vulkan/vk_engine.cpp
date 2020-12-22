@@ -1,3 +1,5 @@
+#define VMA_IMPLEMENTATION
+
 #include "vk_engine.hpp"
 #include "vk_types.hpp"
 #include "vk_init.hpp"
@@ -48,6 +50,12 @@ void VulkanEngine::initVulkan() {
 
     _graphics_queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
     _graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
+
+    VmaAllocatorCreateInfo allocator_info {};
+    allocator_info.physicalDevice = _gpu;
+    allocator_info.device = _device;
+    allocator_info.instance = _instance;
+    vmaCreateAllocator(&allocator_info, &_allocator);
 }
 
 void VulkanEngine::initSwapchain() {

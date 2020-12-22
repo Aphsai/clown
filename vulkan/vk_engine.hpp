@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vk_mem_alloc.h"
 #include "vk_types.hpp"
 #include "window.hpp"
 #include "vk_bootstrap.h"
@@ -63,6 +64,7 @@ struct VulkanEngine {
     VkSemaphore _render_semaphore;
     VkFence _render_fence;
     DeletionQueue _main_deletion_queue;
+    VmaAllocator _allocator;
 
     // ---  tmp
     VkPipelineLayout _triangle_pipeline_layout;
