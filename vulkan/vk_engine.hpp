@@ -5,6 +5,38 @@
 #include "vk_bootstrap.h"
 #include "shared.hpp"
 
+#include <deque>
+#include <functional>
+
+struct PipelineBuilder {
+    std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
+    VkPipelineVertexInputStateCreateInfo _vertex_input_info;
+    VkPipelineInputAssemblyStateCreateInfo _input_assembly;
+    VkViewport _viewport;
+    VkRect2D _scissor;
+    VkPipelineRasterizationStateCreateInfo _rasterizer;
+    VkPipelineColorBlendAttachmentState _color_blend_attachment;
+    VkPipelineMultisampleStateCreateInfo _multisampling;
+    VkPipelineLayout _pipeline_layout;
+
+    VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
+};
+
+struct DeletionQueue {
+    std::deque<std::function<void()>> deletors;
+    
+    void push_function(std::function<void()>&& function) {
+        deletors.push_back(function);
+    }
+
+    void flush() {
+        for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+            (*it)();
+        }
+
+        deletors.clear();
+    }
+};
 
 struct VulkanEngine {
 
@@ -30,6 +62,7 @@ struct VulkanEngine {
     VkSemaphore _present_semaphore;
     VkSemaphore _render_semaphore;
     VkFence _render_fence;
+    DeletionQueue _main_deletion_queue;
 
     // ---  tmp
     VkPipelineLayout _triangle_pipeline_layout;
@@ -54,18 +87,3 @@ struct VulkanEngine {
     void run();
 
 };
-
-struct PipelineBuilder {
-    std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
-    VkPipelineVertexInputStateCreateInfo _vertex_input_info;
-    VkPipelineInputAssemblyStateCreateInfo _input_assembly;
-    VkViewport _viewport;
-    VkRect2D _scissor;
-    VkPipelineRasterizationStateCreateInfo _rasterizer;
-    VkPipelineColorBlendAttachmentState _color_blend_attachment;
-    VkPipelineMultisampleStateCreateInfo _multisampling;
-    VkPipelineLayout _pipeline_layout;
-
-    VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
-};
-
