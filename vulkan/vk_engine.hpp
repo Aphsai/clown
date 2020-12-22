@@ -1,9 +1,11 @@
 #pragma once
 
 #include "vk_mem_alloc.h"
-#include "vk_types.hpp"
-#include "window.hpp"
 #include "vk_bootstrap.h"
+
+#include "vk_types.hpp"
+#include "vk_mesh.hpp"
+#include "window.hpp"
 #include "shared.hpp"
 
 #include <deque>
@@ -65,6 +67,7 @@ struct VulkanEngine {
     VkFence _render_fence;
     DeletionQueue _main_deletion_queue;
     VmaAllocator _allocator;
+    Mesh _triangle_mesh;
 
     // ---  tmp
     VkPipelineLayout _triangle_pipeline_layout;
@@ -82,6 +85,8 @@ struct VulkanEngine {
     void initPipelines();
 
     bool loadShaderModule(const char* file_path, VkShaderModule* out_shader_module);
+    void loadMeshes();
+    void uploadMesh(Mesh& mesh);
 
     void init();
     void cleanup();
