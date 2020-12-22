@@ -30,6 +30,11 @@ struct VulkanEngine {
     VkSemaphore _render_semaphore;
     VkFence _render_fence;
 
+    // ---  tmp
+    VkPipelineLayout _triangle_pipeline_layout;
+    VkPipeline _triangle_pipeline;
+    // ----
+
     Window* window; 
     
     void initVulkan();
@@ -60,6 +65,6 @@ struct PipelineBuilder {
     VkPipelineMultisampleStateCreateInfo _multisampling;
     VkPipelineLayout _pipeline_layout;
 
-    VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
+    VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };
 

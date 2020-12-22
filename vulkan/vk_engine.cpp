@@ -191,6 +191,10 @@ void VulkanEngine::draw() {
     render_pass_begin_info.pClearValues = &clear_value;
 
     vkCmdBeginRenderPass(_main_command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    
+    vkCmdBindPipeline(_main_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _triangle_pipeline);
+    vkCmdDraw(_main_command_buffer, 3, 1, 0, 0);
+
     vkCmdEndRenderPass(_main_command_buffer);
 
     errorCheck(vkEndCommandBuffer(_main_command_buffer));
@@ -224,18 +228,44 @@ void VulkanEngine::draw() {
 
 void VulkanEngine::initPipelines() {
     VkShaderModule triangle_frag_shader;
-    if (!loadShaderModule("../../shaders/triangle.frag.spv", &triangle_frag_shader)) {
+    if (!loadShaderModule("./shaders/triangle.frag.spv", &triangle_frag_shader)) {
         std::cout << "Error when building the triangle fragment shader module" << std::endl;
     } else {
         std::cout << "Triangle fragment shader successfully loaded" << std::endl;
     }
 
     VkShaderModule triangle_vert_shader;
-    if (!loadShaderModule("../../shaders/triangle.vert.spv", &triangle_vert_shader)) {
+    if (!loadShaderModule("./shaders/triangle.vert.spv", &triangle_vert_shader)) {
         std::cout << "Error when building the triangle vertex shader module" << std::endl;
     } else {
         std::cout << "Triangle vertex shader successfully loaded" << std::endl;
     }
+
+    VkPipelineLayoutCreateInfo pipeline_layout_info = vk_init::pipelineLayoutCreateInfo();
+    errorCheck(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_triangle_pipeline_layout));
+
+    PipelineBuilder pipeline_builder;
+    pipeline_builder._shader_stages.push_back(vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, triangle_vert_shader));
+    pipeline_builder._shader_stages.push_back(vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangle_frag_shader));
+
+    pipeline_builder._vertex_input_info = vk_init::vertexInputStateCreateInfo();
+    pipeline_builder._input_assembly = vk_init::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipeline_builder._viewport.x = 0.0f;
+    pipeline_builder._viewport.y = 0.0f;
+    pipeline_builder._viewport.width = (float)_window_extent.width;
+    pipeline_builder._viewport.height = (float)_window_extent.height;
+    pipeline_builder._viewport.minDepth = 0.0f;
+    pipeline_builder._viewport.maxDepth = 1.0f;
+
+    pipeline_builder._scissor.offset = { 0, 0 };
+    pipeline_builder._scissor.extent = _window_extent;
+
+    pipeline_builder._rasterizer = vk_init::rasterizationStateCreateInfo(VK_POLYGON_MODE_FILL);
+    pipeline_builder._multisampling = vk_init::multisampleStateCreateInfo();
+    pipeline_builder._color_blend_attachment = vk_init::colorBlendAttachmentState();
+    pipeline_builder._pipeline_layout = _triangle_pipeline_layout;
+
+    _triangle_pipeline = pipeline_builder.buildPipeline(_device, _render_pass);
 }
 
 void VulkanEngine::run() {
@@ -276,4 +306,46 @@ bool VulkanEngine::loadShaderModule(const char* file_path, VkShaderModule* out_s
 
     *out_shader_module = shader_module;
     return true;
+}
+
+VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
+    VkPipelineViewportStateCreateInfo viewport_state {};
+    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.pNext = nullptr;
+    viewport_state.viewportCount = 1;
+    viewport_state.pViewports = &_viewport;
+    viewport_state.scissorCount = 1;
+    viewport_state.pScissors = &_scissor;
+
+    VkPipelineColorBlendStateCreateInfo color_blending {};
+    color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    color_blending.pNext = nullptr;
+    color_blending.logicOpEnable = VK_FALSE;
+    color_blending.logicOp = VK_LOGIC_OP_COPY;
+    color_blending.attachmentCount = 1;
+    color_blending.pAttachments = &_color_blend_attachment;
+
+    VkGraphicsPipelineCreateInfo pipeline_info {};
+    pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipeline_info.pNext = nullptr;
+    pipeline_info.stageCount = _shader_stages.size();
+    pipeline_info.pStages = _shader_stages.data();
+    pipeline_info.pVertexInputState = &_vertex_input_info;
+    pipeline_info.pInputAssemblyState = &_input_assembly;
+    pipeline_info.pViewportState = &viewport_state;
+    pipeline_info.pRasterizationState = &_rasterizer;
+    pipeline_info.pMultisampleState = &_multisampling;
+    pipeline_info.pColorBlendState = &color_blending;
+    pipeline_info.layout = _pipeline_layout;
+    pipeline_info.renderPass = pass;
+    pipeline_info.subpass = 0;
+    pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
+
+    VkPipeline new_pipeline;
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &new_pipeline) != VK_SUCCESS) {
+        std::cout << "failed to create pipeline" << std::endl;
+        return VK_NULL_HANDLE;
+    } else {
+        return new_pipeline;
+    }
 }
