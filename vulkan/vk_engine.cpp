@@ -59,6 +59,12 @@ void VulkanEngine::initVulkan() {
     allocator_info.device = _device;
     allocator_info.instance = _instance;
     vmaCreateAllocator(&allocator_info, &_allocator);
+
+    _main_deletion_queue.push_function(
+            [=]() {
+                vmaDestroyAllocator(_allocator);
+            }
+    );
 }
 
 void VulkanEngine::initSwapchain() {
