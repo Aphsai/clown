@@ -10,8 +10,9 @@ CFLAGS = -std=c++17 -I$(VULKAN_SDK)/include
 LDFLAGS = -g -L$(VULKAN_SDK)/lib `pkg-config --static --libs glfw3` -lvulkan
 CC := g++
 
-$(PROG): $(OBJS)
+$(PROG): $(OBJS) $(SPIRVS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+
 
 %.cpp.o: %.cpp
 	$(CC) -MMD -MP $(CFLAGS) -c $< -o $@ $(LDFLAGS)
@@ -26,6 +27,7 @@ clean:
 	find . -type f -name '*.o' -delete
 	find . -type f -name '*.d' -delete
 	find . -type f -name 'vgcore.*' -delete
+	find . -type f -name '*.spv' -delete
 
 .PHONY: shaders 
 

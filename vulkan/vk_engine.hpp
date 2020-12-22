@@ -5,6 +5,7 @@
 #include "vk_bootstrap.h"
 #include "shared.hpp"
 
+
 struct VulkanEngine {
 
     bool _is_initialized = false;

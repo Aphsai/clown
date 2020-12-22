@@ -270,10 +270,10 @@ void VulkanEngine::initPipelines() {
 
 void VulkanEngine::run() {
     bool run = true;
-
     while(run) {
         window->update();
         run = window->window_should_run;
+
         draw();
     }
 
