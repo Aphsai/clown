@@ -244,7 +244,7 @@ void VulkanEngine::draw() {
     vkCmdBindPipeline(_main_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _triangle_pipeline);
 
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(_main_command_buffer, 0, 1, &_triangle_mesh._vertex_buffer._buffer, &offset);
+    vkCmdBindVertexBuffers(_main_command_buffer, 0, 1, &_monkey_mesh._vertex_buffer._buffer, &offset);
 
 
     glm::vec3 cam_pos = { 0.f, 0.f, -2.f };
@@ -256,7 +256,7 @@ void VulkanEngine::draw() {
     MeshPushConstants constants;
     constants.render_matrix = mesh_matrix;
     vkCmdPushConstants(_main_command_buffer, _triangle_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
-    vkCmdDraw(_main_command_buffer, _triangle_mesh._vertices.size(), 1, 0, 0);
+    vkCmdDraw(_main_command_buffer, _monkey_mesh._vertices.size(), 1, 0, 0);
 
     vkCmdEndRenderPass(_main_command_buffer);
 
@@ -416,7 +416,10 @@ void VulkanEngine::loadMeshes() {
     _triangle_mesh._vertices[1].color = { 0.f, 1.f, 0.0f };
     _triangle_mesh._vertices[2].color = { 0.f, 1.f, 0.0f };
 
+    _monkey_mesh.loadFromObj("./assets/monkey_smooth.obj");
+
     uploadMesh(_triangle_mesh);
+    uploadMesh(_monkey_mesh);
 }
 
 void VulkanEngine::uploadMesh(Mesh& mesh) {

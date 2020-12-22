@@ -75,6 +75,7 @@ struct VulkanEngine {
     DeletionQueue _main_deletion_queue;
     VmaAllocator _allocator;
     Mesh _triangle_mesh;
+    Mesh _monkey_mesh;
 
     // ---  tmp
     VkPipelineLayout _triangle_pipeline_layout;
