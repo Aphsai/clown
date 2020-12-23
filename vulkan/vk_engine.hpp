@@ -14,6 +14,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
+constexpr unsigned int FRAME_OVERLAP = 2; // frames to overlap when rendering
+
+struct FrameData {
+    VkSemaphore _present_semaphore, _render_semaphore;
+    VkFence _render_fence;
+
+    VkCommandPool _command_pool;
+    VkCommandBuffer _main_command_buffer;
+};
+
 struct Material {
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
@@ -25,6 +35,7 @@ struct RenderObject {
 
     glm::mat4 transform_matrix;
 };
+
 
 struct PipelineBuilder {
     std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
@@ -68,6 +79,10 @@ struct VulkanEngine {
     int _frame_number = 0;
     VkExtent2D _window_extent = { 1700, 900 };
 
+
+    FrameData _frames[FRAME_OVERLAP];
+    FrameData& getCurrentFrame();
+
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debug_messenger;
     VkPhysicalDevice _gpu;
@@ -79,13 +94,8 @@ struct VulkanEngine {
     std::vector<VkImageView> _swapchain_image_views;
     VkQueue _graphics_queue;
     uint32_t _graphics_queue_family;
-    VkCommandPool _command_pool;
-    VkCommandBuffer _main_command_buffer;
     VkRenderPass _render_pass;
     std::vector<VkFramebuffer> _framebuffers;
-    VkSemaphore _present_semaphore;
-    VkSemaphore _render_semaphore;
-    VkFence _render_fence;
     DeletionQueue _main_deletion_queue;
     VmaAllocator _allocator;
     VkImageView _depth_image_view;
