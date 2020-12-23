@@ -10,8 +10,21 @@
 
 #include <deque>
 #include <functional>
+#include <unordered_map>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+
+struct Material {
+    VkPipeline pipeline;
+    VkPipelineLayout pipeline_layout;
+};
+
+struct RenderObject {
+    Mesh* mesh;
+    Material* material;
+
+    glm::mat4 transform_matrix;
+};
 
 struct PipelineBuilder {
     std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
@@ -78,6 +91,14 @@ struct VulkanEngine {
     VkImageView _depth_image_view;
     VkFormat _depth_format;
 
+    std::vector<RenderObject> _renderables;
+    std::unordered_map<std::string, Material> _materials;
+    std::unordered_map<std::string, Mesh> _meshes;
+
+    Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+    Material* getMaterial(const std::string& name);
+    Mesh* getMesh(const std::string& name);
+
     // <++>  tmp
     AllocatedImage _depth_image;
     Mesh _triangle_mesh;
@@ -95,10 +116,12 @@ struct VulkanEngine {
     void initFramebuffers();
     void initSyncStructures();
     void initPipelines();
+    void initScene();
 
     bool loadShaderModule(const char* file_path, VkShaderModule* out_shader_module);
     void loadMeshes();
     void uploadMesh(Mesh& mesh);
+    void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
 
     void init();
     void cleanup();
