@@ -22,6 +22,7 @@ struct PipelineBuilder {
     VkPipelineRasterizationStateCreateInfo _rasterizer;
     VkPipelineColorBlendAttachmentState _color_blend_attachment;
     VkPipelineMultisampleStateCreateInfo _multisampling;
+    VkPipelineDepthStencilStateCreateInfo _depth_stencil;
     VkPipelineLayout _pipeline_layout;
 
     VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
@@ -74,13 +75,16 @@ struct VulkanEngine {
     VkFence _render_fence;
     DeletionQueue _main_deletion_queue;
     VmaAllocator _allocator;
+    VkImageView _depth_image_view;
+    VkFormat _depth_format;
+
+    // <++>  tmp
+    AllocatedImage _depth_image;
     Mesh _triangle_mesh;
     Mesh _monkey_mesh;
-
-    // ---  tmp
     VkPipelineLayout _triangle_pipeline_layout;
     VkPipeline _triangle_pipeline;
-    // ----
+    // <++>
 
     Window* window; 
     
