@@ -16,12 +16,29 @@
 
 constexpr unsigned int FRAME_OVERLAP = 2; // frames to overlap when rendering
 
+struct GPUSceneData {
+    glm::vec4 fog_color;
+    glm::vec4 fog_distances;
+    glm::vec4 ambient_color;
+    glm::vec4 sunlight_direction;
+    glm::vec4 sunlight_color;
+};
+
+struct GPUCameraData {
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::mat4 viewproj;
+};
+
 struct FrameData {
     VkSemaphore _present_semaphore, _render_semaphore;
     VkFence _render_fence;
 
     VkCommandPool _command_pool;
     VkCommandBuffer _main_command_buffer;
+
+    AllocatedBuffer camera_buffer;
+    VkDescriptorSet global_descriptor;
 };
 
 struct Material {
@@ -100,14 +117,15 @@ struct VulkanEngine {
     VmaAllocator _allocator;
     VkImageView _depth_image_view;
     VkFormat _depth_format;
+    VkDescriptorSetLayout _global_set_layout;
+    VkDescriptorPool _descriptor_pool;
+    VkPhysicalDeviceProperties _gpu_properties;
+    GPUSceneData _scene_parameters;
+    AllocatedBuffer _scene_parameter_buffer;
 
     std::vector<RenderObject> _renderables;
     std::unordered_map<std::string, Material> _materials;
     std::unordered_map<std::string, Mesh> _meshes;
-
-    Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
-    Material* getMaterial(const std::string& name);
-    Mesh* getMesh(const std::string& name);
 
     // <++>  tmp
     AllocatedImage _depth_image;
@@ -127,11 +145,18 @@ struct VulkanEngine {
     void initSyncStructures();
     void initPipelines();
     void initScene();
+    void initDescriptors();
 
     bool loadShaderModule(const char* file_path, VkShaderModule* out_shader_module);
     void loadMeshes();
     void uploadMesh(Mesh& mesh);
     void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
+    size_t padUniformBufferSize(size_t original_size);
+    
+    AllocatedBuffer createBuffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
+    Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+    Material* getMaterial(const std::string& name);
+    Mesh* getMesh(const std::string& name);
 
     void init();
     void cleanup();

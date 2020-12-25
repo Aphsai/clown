@@ -18,5 +18,6 @@ namespace vk_init {
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent);
     VkImageViewCreateInfo imageViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags);
 
-
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stage_flags, uint32_t binding);
+    VkWriteDescriptorSet writeDescriptorBuffer(VkDescriptorType type, VkDescriptorSet desc_set, VkDescriptorBufferInfo* buffer_info, uint32_t binding);
 }

@@ -139,3 +139,25 @@ VkImageViewCreateInfo vk_init::imageViewCreateInfo(VkFormat format, VkImage imag
     info.subresourceRange.aspectMask = aspect_flags;
     return info;
 }
+
+VkDescriptorSetLayoutBinding vk_init::descriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stage_flags, uint32_t binding) {
+    VkDescriptorSetLayoutBinding set_binding {};
+    set_binding.binding = binding;
+    set_binding.descriptorCount = 1;
+    set_binding.descriptorType = type;
+    set_binding.pImmutableSamplers = nullptr;
+    set_binding.stageFlags = stage_flags;
+    return set_binding;
+}
+
+VkWriteDescriptorSet vk_init::writeDescriptorBuffer(VkDescriptorType type, VkDescriptorSet desc_set, VkDescriptorBufferInfo* buffer_info, uint32_t binding) {
+    VkWriteDescriptorSet write {};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.pNext = nullptr;
+    write.dstBinding = binding;
+    write.dstSet = desc_set;
+    write.descriptorCount = 1;
+    write.descriptorType = type;
+    write.pBufferInfo = buffer_info;
+    return write;
+}
