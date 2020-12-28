@@ -30,6 +30,10 @@ struct GPUCameraData {
     glm::mat4 viewproj;
 };
 
+struct GPUObjectData {
+    glm::mat4 model_matrix;
+};
+
 struct FrameData {
     VkSemaphore _present_semaphore, _render_semaphore;
     VkFence _render_fence;
@@ -39,6 +43,9 @@ struct FrameData {
 
     AllocatedBuffer camera_buffer;
     VkDescriptorSet global_descriptor;
+
+    AllocatedBuffer object_buffer;
+    VkDescriptorSet object_descriptor;
 };
 
 struct Material {
@@ -122,6 +129,7 @@ struct VulkanEngine {
     VkPhysicalDeviceProperties _gpu_properties;
     GPUSceneData _scene_parameters;
     AllocatedBuffer _scene_parameter_buffer;
+    VkDescriptorSetLayout _object_set_layout;
 
     std::vector<RenderObject> _renderables;
     std::unordered_map<std::string, Material> _materials;
