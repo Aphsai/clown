@@ -16,6 +16,11 @@
 
 constexpr unsigned int FRAME_OVERLAP = 2; // frames to overlap when rendering
 
+struct UploadContext {
+    VkFence _upload_fence;
+    VkCommandPool _command_pool;
+};
+
 struct GPUSceneData {
     glm::vec4 fog_color;
     glm::vec4 fog_distances;
@@ -130,6 +135,7 @@ struct VulkanEngine {
     GPUSceneData _scene_parameters;
     AllocatedBuffer _scene_parameter_buffer;
     VkDescriptorSetLayout _object_set_layout;
+    UploadContext _upload_context;
 
     std::vector<RenderObject> _renderables;
     std::unordered_map<std::string, Material> _materials;
@@ -159,6 +165,7 @@ struct VulkanEngine {
     void loadMeshes();
     void uploadMesh(Mesh& mesh);
     void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
+    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
     size_t padUniformBufferSize(size_t original_size);
     
     AllocatedBuffer createBuffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);

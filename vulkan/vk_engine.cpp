@@ -116,6 +116,16 @@ void VulkanEngine::initCommands() {
 
     VkCommandPoolCreateInfo command_pool_info = vk_init::commandPoolCreateInfo(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
+    VkCommandPoolCreateInfo upload_command_pool_info = vk_init::commandPoolCreateInfo(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+    errorCheck(vkCreateCommandPool(_device, &upload_command_pool_info, nullptr, &_upload_context._command_pool));
+
+    _main_deletion_queue.push_function(
+            [=]() {
+                vkDestroyCommandPool(_device, _upload_context._command_pool, nullptr);
+            }
+    );
+
     for (int x = 0; x < FRAME_OVERLAP; x++) {
         errorCheck(vkCreateCommandPool(_device, &command_pool_info, nullptr, &_frames[x]._command_pool));
 
@@ -223,6 +233,18 @@ void VulkanEngine::initSyncStructures() {
     fence_create_info.pNext = nullptr;
     fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
+    VkFenceCreateInfo upload_fence_create_info {};
+    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_create_info.pNext = nullptr;
+
+
+    errorCheck(vkCreateFence(_device, &upload_fence_create_info, nullptr, &_upload_context._upload_fence));
+    _main_deletion_queue.push_function(
+            [=]() {
+                vkDestroyFence(_device, _upload_context._upload_fence, nullptr);
+            }
+    );
+
     VkSemaphoreCreateInfo semaphore_create_info {};
     semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     semaphore_create_info.pNext = nullptr;
@@ -239,6 +261,7 @@ void VulkanEngine::initSyncStructures() {
                 [=]() {
                     vkDestroySemaphore(_device, _frames[x]._present_semaphore, nullptr);
                     vkDestroySemaphore(_device, _frames[x]._render_semaphore, nullptr);
+                    vkDestroyFence(_device, _frames[x]._render_fence, nullptr);
                 }
         );
     }
@@ -598,20 +621,57 @@ void VulkanEngine::loadMeshes() {
 }
 
 void VulkanEngine::uploadMesh(Mesh& mesh) {
-    VkBufferCreateInfo buffer_info {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.size = mesh._vertices.size() * sizeof(Vertex);
-    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    const size_t buffer_size = mesh._vertices.size() * sizeof(Vertex);
+
+    // Staging Buffer
+    VkBufferCreateInfo staging_buffer_info {};
+    staging_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    staging_buffer_info.size = buffer_size;
+    staging_buffer_info.pNext = nullptr;
+    staging_buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VmaAllocationCreateInfo vma_alloc_info {};
-    vma_alloc_info.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    vma_alloc_info.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    AllocatedBuffer staging_buffer;
 
     errorCheck(vmaCreateBuffer(_allocator, 
-                &buffer_info, 
+                &staging_buffer_info, 
+                &vma_alloc_info, 
+                &staging_buffer._buffer, 
+                &staging_buffer._allocation, 
+                nullptr));
+
+    void* data;
+    vmaMapMemory(_allocator, staging_buffer._allocation, &data);
+    memcpy(data, mesh._vertices.data(), buffer_size);
+    vmaUnmapMemory(_allocator, staging_buffer._allocation);
+    
+    // Vertex Buffer
+    VkBufferCreateInfo vertex_buffer_info {};
+    vertex_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vertex_buffer_info.pNext = nullptr;
+    vertex_buffer_info.size = buffer_size;
+    vertex_buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vma_alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    errorCheck(vmaCreateBuffer(_allocator, 
+                &vertex_buffer_info, 
                 &vma_alloc_info, 
                 &mesh._vertex_buffer._buffer, 
                 &mesh._vertex_buffer._allocation, 
                 nullptr));
+    
+    // Copy
+    immediateSubmit(
+            [=](VkCommandBuffer cmd) {
+                VkBufferCopy copy;
+                copy.dstOffset = 0;
+                copy.srcOffset = 0;
+                copy.size = buffer_size;
+                vkCmdCopyBuffer(cmd, staging_buffer._buffer, mesh._vertex_buffer._buffer, 1, &copy);
+            }
+    );
 
     _main_deletion_queue.push_function(
             [=]() {
@@ -619,10 +679,8 @@ void VulkanEngine::uploadMesh(Mesh& mesh) {
             }
     );
 
-    void* data;
-    vmaMapMemory(_allocator, mesh._vertex_buffer._allocation, &data);
-    memcpy(data, mesh._vertices.data(), mesh._vertices.size() * sizeof(Vertex));
-    vmaUnmapMemory(_allocator, mesh._vertex_buffer._allocation);
+    vmaDestroyBuffer(_allocator, staging_buffer._buffer, staging_buffer._allocation);
+
 }
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
@@ -736,6 +794,42 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* objects, int c
 
         vkCmdDraw(cmd, object.mesh->_vertices.size(), 1, 0, 0);
     }
+}
+
+void VulkanEngine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
+    VkCommandBufferAllocateInfo command_allocate_info = vk_init::commandBufferAllocateInfo(_upload_context._command_pool, 1);
+
+    VkCommandBuffer cmd;
+    errorCheck(vkAllocateCommandBuffers(_device, &command_allocate_info, &cmd));
+
+    VkCommandBufferBeginInfo cmd_begin_info {};
+    cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cmd_begin_info.pNext = nullptr;
+    cmd_begin_info.pInheritanceInfo = nullptr;
+    cmd_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    errorCheck(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+    function(cmd);
+
+    errorCheck(vkEndCommandBuffer(cmd));
+
+    VkSubmitInfo submit_info = {};
+	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit_info.pNext = nullptr;
+	submit_info.waitSemaphoreCount = 0;
+	submit_info.pWaitSemaphores = nullptr;
+	submit_info.pWaitDstStageMask = nullptr;
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &cmd;
+	submit_info.signalSemaphoreCount = 0;
+	submit_info.pSignalSemaphores = nullptr;
+    
+    errorCheck(vkQueueSubmit(_graphics_queue, 1, &submit_info, _upload_context._upload_fence));
+    vkWaitForFences(_device, 1, &_upload_context._upload_fence, true, 99999999999);
+    vkResetFences(_device, 1, &_upload_context._upload_fence);
+
+    vkResetCommandPool(_device, _upload_context._command_pool, 0);
+
 }
 
 // https://github.com/SaschaWillems/Vulkan/tree/master/examples/dynamicuniformbuffer
