@@ -3,6 +3,7 @@
 #include "vk_engine.hpp"
 #include "vk_types.hpp"
 #include "vk_init.hpp"
+#include "vk_textures.hpp"
 #include "platform.hpp"
 
 #include <math.h>
@@ -11,13 +12,14 @@ void VulkanEngine::init() {
     initPlatform();
     initVulkan();
     initSwapchain();
-    initCommands();
     initRenderPass();
     initFramebuffers();
+    initCommands();
     initSyncStructures();
     initDescriptors();
     initPipelines();
     loadMeshes();
+    loadImages();
     initScene();
 
     _is_initialized = true;
@@ -66,9 +68,11 @@ void VulkanEngine::initVulkan() {
     );
 
     vkGetPhysicalDeviceProperties(_gpu, &_gpu_properties);
-    std::cout << "GPU has a minimum buffer alignment of " << _gpu_properties.limits.minUniformBufferOffsetAlignment << std::endl;
+    //std::cout << "GPU has a minimum buffer alignment of " << _gpu_properties.limits.minUniformBufferOffsetAlignment << std::endl;
 }
 
+
+// TODO: Handle recreating swapchain
 void VulkanEngine::initSwapchain() {
 
     vkb::SwapchainBuilder swapchain_builder { _gpu, _device, _surface };
@@ -116,21 +120,13 @@ void VulkanEngine::initCommands() {
 
     VkCommandPoolCreateInfo command_pool_info = vk_init::commandPoolCreateInfo(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    VkCommandPoolCreateInfo upload_command_pool_info = vk_init::commandPoolCreateInfo(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-
-    errorCheck(vkCreateCommandPool(_device, &upload_command_pool_info, nullptr, &_upload_context._command_pool));
-
-    _main_deletion_queue.push_function(
-            [=]() {
-                vkDestroyCommandPool(_device, _upload_context._command_pool, nullptr);
-            }
-    );
-
     for (int x = 0; x < FRAME_OVERLAP; x++) {
         errorCheck(vkCreateCommandPool(_device, &command_pool_info, nullptr, &_frames[x]._command_pool));
 
         VkCommandBufferAllocateInfo command_allocate_info = vk_init::commandBufferAllocateInfo(_frames[x]._command_pool, 1);
         errorCheck(vkAllocateCommandBuffers(_device, &command_allocate_info, &_frames[x]._main_command_buffer));
+
+        //std::cout << "Initialized command buffer for frame: " << &_frames[x] << " with address: " << _frames[x]._main_command_buffer << std::endl;
 
         _main_deletion_queue.push_function(
                 [=]() {
@@ -138,6 +134,15 @@ void VulkanEngine::initCommands() {
                 }
          );
     }
+
+    VkCommandPoolCreateInfo upload_command_pool_info = vk_init::commandPoolCreateInfo(_graphics_queue_family);
+    errorCheck(vkCreateCommandPool(_device, &upload_command_pool_info, nullptr, &_upload_context._command_pool));
+
+    _main_deletion_queue.push_function(
+            [=]() {
+                vkDestroyCommandPool(_device, _upload_context._command_pool, nullptr);
+            }
+    );
 }
 
 void VulkanEngine::initRenderPass() {
@@ -176,6 +181,14 @@ void VulkanEngine::initRenderPass() {
     subpass.pColorAttachments = &color_attachment_ref;
     subpass.pDepthStencilAttachment = &depth_attachment_ref;
 
+    VkSubpassDependency dependency {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
     VkAttachmentDescription attachments[2] = { color_attachment, depth_attachment };
 
     VkRenderPassCreateInfo render_pass_info {};
@@ -184,6 +197,8 @@ void VulkanEngine::initRenderPass() {
     render_pass_info.pAttachments = attachments;
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass;
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies = &dependency;
 
     errorCheck(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_render_pass));
 
@@ -406,27 +421,21 @@ void VulkanEngine::cleanup() {
 
 void VulkanEngine::draw() {
     FrameData frame = getCurrentFrame();
-    errorCheck(vkWaitForFences(_device, 1, &frame._render_fence, true, 1000000000));
-    errorCheck(vkResetFences(_device, 1, &frame._render_fence));
-
-    errorCheck(vkResetCommandBuffer(frame._main_command_buffer, 0));
+    //std::cout << "Current frame: " << _frame_number % FRAME_OVERLAP << std::endl;
+    errorCheck(vkWaitForFences(_device, 1, &getCurrentFrame()._render_fence, true, 1000000000));
+    errorCheck(vkResetFences(_device, 1, &getCurrentFrame()._render_fence));
+    errorCheck(vkResetCommandBuffer(getCurrentFrame()._main_command_buffer, 0));
 
     uint32_t swapchain_image_index;
-    errorCheck(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, frame._present_semaphore, nullptr, &swapchain_image_index));
+    errorCheck(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, getCurrentFrame()._present_semaphore, nullptr, &swapchain_image_index));
 
     VkCommandBufferBeginInfo cmd_begin_info {};
     cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmd_begin_info.pNext = nullptr;
     cmd_begin_info.pInheritanceInfo = nullptr;
     cmd_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    errorCheck(vkBeginCommandBuffer(frame._main_command_buffer, &cmd_begin_info));
-    
-    VkClearValue clear_value;
-    float flash = abs(sin(_frame_number / 120.f));
-    clear_value.color = {{ 0.0f, 0.0f, flash, 1.0f }};
 
-    VkClearValue depth_clear;
-    depth_clear.depthStencil.depth = 1.f;
+    errorCheck(vkBeginCommandBuffer(getCurrentFrame()._main_command_buffer, &cmd_begin_info));
 
     VkRenderPassBeginInfo render_pass_begin_info {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -437,17 +446,24 @@ void VulkanEngine::draw() {
     render_pass_begin_info.renderArea.extent = _window_extent;
     render_pass_begin_info.framebuffer = _framebuffers[swapchain_image_index];
     render_pass_begin_info.clearValueCount = 2;
-
-    VkClearValue clear_values[] = { clear_value, depth_clear };
-    render_pass_begin_info.pClearValues = clear_values;
-
-    vkCmdBeginRenderPass(frame._main_command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-    drawObjects(frame._main_command_buffer, _renderables.data(), _renderables.size());
     
-    vkCmdEndRenderPass(frame._main_command_buffer);
+    VkClearValue clear_value;
+    float flash = abs(sin(_frame_number / 120.f));
+    clear_value.color = {{ 0.0f, 0.0f, flash, 1.0f }};
+    VkClearValue depth_clear;
+    depth_clear.depthStencil.depth = 1.f;
+    VkClearValue clear_values[] = { clear_value, depth_clear };
 
-    errorCheck(vkEndCommandBuffer(frame._main_command_buffer));
+    render_pass_begin_info.pClearValues = clear_values;
+     
+    vkCmdBeginRenderPass(getCurrentFrame()._main_command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+    //std::cout << "Drawing command buffer for frame: " << &getCurrentFrame() << " with address: " << getCurrentFrame()._main_command_buffer << std::endl;
+    drawObjects(getCurrentFrame()._main_command_buffer, _renderables.data(), _renderables.size());
+    
+    vkCmdEndRenderPass(getCurrentFrame()._main_command_buffer);
+
+    errorCheck(vkEndCommandBuffer(getCurrentFrame()._main_command_buffer));
 
     VkSubmitInfo submit {};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -455,20 +471,20 @@ void VulkanEngine::draw() {
 
     VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &frame._present_semaphore;
+    submit.pWaitSemaphores = &getCurrentFrame()._present_semaphore;
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &frame._render_semaphore;
+    submit.pSignalSemaphores = &getCurrentFrame()._render_semaphore;
     submit.commandBufferCount = 1;
-    submit.pCommandBuffers = &frame._main_command_buffer;
+    submit.pCommandBuffers = &getCurrentFrame()._main_command_buffer;
 
-    errorCheck(vkQueueSubmit(_graphics_queue, 1, &submit, frame._render_fence));
+    errorCheck(vkQueueSubmit(_graphics_queue, 1, &submit, getCurrentFrame()._render_fence));
 
     VkPresentInfoKHR present_info {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.pNext = nullptr;
     present_info.pSwapchains = &_swapchain;
     present_info.swapchainCount = 1;
-    present_info.pWaitSemaphores = &frame._render_semaphore;
+    present_info.pWaitSemaphores = &getCurrentFrame()._render_semaphore;
     present_info.waitSemaphoreCount = 1;
     present_info.pImageIndices = &swapchain_image_index;
 
@@ -842,6 +858,14 @@ size_t VulkanEngine::padUniformBufferSize(size_t original_size) {
     }
 
     return aligned_size;
+}
+
+void VulkanEngine::loadImages() {
+    Texture lost_empire;
+    vk_util::loadImageFromFile(*this, "./assets/lost_empire-RGBA.png", lost_empire.image);
+    VkImageViewCreateInfo image_info = vk_init::imageViewCreateInfo(VK_FORMAT_R8G8B8A8_UNORM, lost_empire.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
+    vkCreateImageView(_device, &image_info, nullptr, &lost_empire.image_view);
+    _loaded_textures["empire_diffuse"] = lost_empire;
 }
 
 AllocatedBuffer VulkanEngine::createBuffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage) {

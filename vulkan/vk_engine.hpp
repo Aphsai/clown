@@ -16,6 +16,11 @@
 
 constexpr unsigned int FRAME_OVERLAP = 2; // frames to overlap when rendering
 
+struct Texture {
+    AllocatedImage image;
+    VkImageView image_view;
+};
+
 struct UploadContext {
     VkFence _upload_fence;
     VkCommandPool _command_pool;
@@ -140,6 +145,7 @@ struct VulkanEngine {
     std::vector<RenderObject> _renderables;
     std::unordered_map<std::string, Material> _materials;
     std::unordered_map<std::string, Mesh> _meshes;
+    std::unordered_map<std::string, Texture> _loaded_textures;
 
     // <++>  tmp
     AllocatedImage _depth_image;
@@ -167,6 +173,7 @@ struct VulkanEngine {
     void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
     size_t padUniformBufferSize(size_t original_size);
+    void loadImages();
     
     AllocatedBuffer createBuffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
     Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
