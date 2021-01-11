@@ -12,10 +12,10 @@ struct Window {
         void close();
         bool update();
 
-        void initOSWindow(VulkanEngine*);
-        void destroyOSWindow();
-        void updateOSWindow();
-        void initOSSurface(VulkanEngine*);
+        void init_os_window(VulkanEngine*);
+        void destroy_os_window();
+        void update_os_window();
+        void init_os_surface(VulkanEngine*);
 
         std::string window_name;
         bool window_should_run = true;

@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <GLFW/glfw3.h>
 
-void initPlatform();
-void destroyPlatform();
-void addRequiredPlatformInstanceExtensions(std::vector<const char*> *instance_extensions);
+void init_platform();
+void destroy_platform();
+void add_required_platform_instance_extensions(std::vector<const char*> *instance_extensions);
 

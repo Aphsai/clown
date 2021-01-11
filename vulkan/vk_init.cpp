@@ -1,6 +1,6 @@
 #include "vk_init.hpp"
 
-VkCommandPoolCreateInfo vk_init::commandPoolCreateInfo(uint32_t queue_family_index, VkCommandPoolCreateFlags flags) {
+VkCommandPoolCreateInfo vk_init::command_pool_create_info(uint32_t queue_family_index, VkCommandPoolCreateFlags flags) {
     VkCommandPoolCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     info.pNext = nullptr;
@@ -9,7 +9,7 @@ VkCommandPoolCreateInfo vk_init::commandPoolCreateInfo(uint32_t queue_family_ind
     return info;
 }
 
-VkCommandBufferAllocateInfo vk_init::commandBufferAllocateInfo(VkCommandPool pool, uint32_t count, VkCommandBufferLevel level) {
+VkCommandBufferAllocateInfo vk_init::command_buffer_allocate_info(VkCommandPool pool, uint32_t count, VkCommandBufferLevel level) {
     VkCommandBufferAllocateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     info.pNext = nullptr;
@@ -19,7 +19,7 @@ VkCommandBufferAllocateInfo vk_init::commandBufferAllocateInfo(VkCommandPool poo
     return info;
 }
 
-VkPipelineShaderStageCreateInfo vk_init::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shader_module) {
+VkPipelineShaderStageCreateInfo vk_init::pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shader_module) {
     VkPipelineShaderStageCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     info.pNext = nullptr;
@@ -29,7 +29,7 @@ VkPipelineShaderStageCreateInfo vk_init::pipelineShaderStageCreateInfo(VkShaderS
     return info;
 }
 
-VkPipelineVertexInputStateCreateInfo vk_init::vertexInputStateCreateInfo() {
+VkPipelineVertexInputStateCreateInfo vk_init::vertex_input_state_create_info() {
     VkPipelineVertexInputStateCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     info.pNext = nullptr;
@@ -38,7 +38,7 @@ VkPipelineVertexInputStateCreateInfo vk_init::vertexInputStateCreateInfo() {
     return info;
 }
 
-VkPipelineInputAssemblyStateCreateInfo vk_init::inputAssemblyCreateInfo(VkPrimitiveTopology topology) {
+VkPipelineInputAssemblyStateCreateInfo vk_init::input_assembly_create_info(VkPrimitiveTopology topology) {
     VkPipelineInputAssemblyStateCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     info.pNext = nullptr;
@@ -47,7 +47,7 @@ VkPipelineInputAssemblyStateCreateInfo vk_init::inputAssemblyCreateInfo(VkPrimit
     return info;
 }
 
-VkPipelineRasterizationStateCreateInfo vk_init::rasterizationStateCreateInfo(VkPolygonMode polygon_mode) {
+VkPipelineRasterizationStateCreateInfo vk_init::rasterization_state_create_info(VkPolygonMode polygon_mode) {
     VkPipelineRasterizationStateCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     info.pNext = nullptr;
@@ -64,7 +64,7 @@ VkPipelineRasterizationStateCreateInfo vk_init::rasterizationStateCreateInfo(VkP
     return info;
 }
 
-VkPipelineMultisampleStateCreateInfo vk_init::multisampleStateCreateInfo() {
+VkPipelineMultisampleStateCreateInfo vk_init::multisample_state_create_info() {
     VkPipelineMultisampleStateCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     info.pNext = nullptr;
@@ -77,14 +77,14 @@ VkPipelineMultisampleStateCreateInfo vk_init::multisampleStateCreateInfo() {
     return info;
 }
 
-VkPipelineColorBlendAttachmentState vk_init::colorBlendAttachmentState() {
+VkPipelineColorBlendAttachmentState vk_init::color_blend_attachment_state() {
     VkPipelineColorBlendAttachmentState color_blend_attachment {};
     color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     color_blend_attachment.blendEnable = VK_FALSE;
     return color_blend_attachment;
 }
 
-VkPipelineLayoutCreateInfo vk_init::pipelineLayoutCreateInfo() {
+VkPipelineLayoutCreateInfo vk_init::pipeline_layout_create_info() {
     VkPipelineLayoutCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     info.pNext = nullptr;
@@ -96,7 +96,7 @@ VkPipelineLayoutCreateInfo vk_init::pipelineLayoutCreateInfo() {
     return info;
 }
 
-VkPipelineDepthStencilStateCreateInfo vk_init::depthStencilCreateInfo(bool depth_test, bool depth_write, VkCompareOp compare_op) {
+VkPipelineDepthStencilStateCreateInfo vk_init::depth_stencil_create_info(bool depth_test, bool depth_write, VkCompareOp compare_op) {
     VkPipelineDepthStencilStateCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     info.pNext = nullptr;
@@ -110,7 +110,7 @@ VkPipelineDepthStencilStateCreateInfo vk_init::depthStencilCreateInfo(bool depth
     return info;
 }
 
-VkImageCreateInfo vk_init::imageCreateInfo(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent) {
+VkImageCreateInfo vk_init::image_create_info(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent) {
     VkImageCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     info.pNext = nullptr;
@@ -125,7 +125,7 @@ VkImageCreateInfo vk_init::imageCreateInfo(VkFormat format, VkImageUsageFlags us
     return info;
 }
 
-VkImageViewCreateInfo vk_init::imageViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags) {
+VkImageViewCreateInfo vk_init::image_view_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags) {
     VkImageViewCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info.pNext = nullptr;
@@ -140,7 +140,7 @@ VkImageViewCreateInfo vk_init::imageViewCreateInfo(VkFormat format, VkImage imag
     return info;
 }
 
-VkDescriptorSetLayoutBinding vk_init::descriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stage_flags, uint32_t binding) {
+VkDescriptorSetLayoutBinding vk_init::descriptor_set_layout_binding(VkDescriptorType type, VkShaderStageFlags stage_flags, uint32_t binding) {
     VkDescriptorSetLayoutBinding set_binding {};
     set_binding.binding = binding;
     set_binding.descriptorCount = 1;
@@ -150,7 +150,7 @@ VkDescriptorSetLayoutBinding vk_init::descriptorSetLayoutBinding(VkDescriptorTyp
     return set_binding;
 }
 
-VkWriteDescriptorSet vk_init::writeDescriptorBuffer(VkDescriptorType type, VkDescriptorSet desc_set, VkDescriptorBufferInfo* buffer_info, uint32_t binding) {
+VkWriteDescriptorSet vk_init::write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet desc_set, VkDescriptorBufferInfo* buffer_info, uint32_t binding) {
     VkWriteDescriptorSet write {};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.pNext = nullptr;

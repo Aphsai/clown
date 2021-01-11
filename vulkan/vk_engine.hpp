@@ -83,7 +83,7 @@ struct PipelineBuilder {
     VkPipelineDepthStencilStateCreateInfo _depth_stencil;
     VkPipelineLayout _pipeline_layout;
 
-    VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
+    VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
 
 struct DeletionQueue {
@@ -115,7 +115,7 @@ struct VulkanEngine {
 
 
     FrameData _frames[FRAME_OVERLAP];
-    FrameData& getCurrentFrame();
+    FrameData& get_current_frame();
 
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debug_messenger;
@@ -149,36 +149,34 @@ struct VulkanEngine {
 
     // <++>  tmp
     AllocatedImage _depth_image;
-    Mesh _triangle_mesh;
-    Mesh _monkey_mesh;
     VkPipelineLayout _triangle_pipeline_layout;
     VkPipeline _triangle_pipeline;
     // <++>
 
     Window* window; 
     
-    void initVulkan();
-    void initSwapchain();
-    void initCommands();
-    void initRenderPass();
-    void initFramebuffers();
-    void initSyncStructures();
-    void initPipelines();
-    void initScene();
-    void initDescriptors();
+    void init_vulkan();
+    void init_swapchain();
+    void init_commands();
+    void init_render_pass();
+    void init_framebuffers();
+    void init_sync_structures();
+    void init_pipelines();
+    void init_scene();
+    void init_descriptors();
 
-    bool loadShaderModule(const char* file_path, VkShaderModule* out_shader_module);
-    void loadMeshes();
-    void uploadMesh(Mesh& mesh);
-    void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
-    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
-    size_t padUniformBufferSize(size_t original_size);
-    void loadImages();
+    bool load_shader_module(const char* file_path, VkShaderModule* out_shader_module);
+    void load_meshes();
+    void upload_mesh(Mesh& mesh);
+    void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+    void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+    size_t pad_uniform_buffer_size(size_t original_size);
+    void load_images();
     
-    AllocatedBuffer createBuffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
-    Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
-    Material* getMaterial(const std::string& name);
-    Mesh* getMesh(const std::string& name);
+    AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
+    Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+    Material* get_material(const std::string& name);
+    Mesh* get_mesh(const std::string& name);
 
     void init();
     void cleanup();

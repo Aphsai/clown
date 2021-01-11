@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-VertexInputDescription Vertex::getVertexDescription() {
+VertexInputDescription Vertex::get_vertex_description() {
     VertexInputDescription description;
 
     VkVertexInputBindingDescription main_binding {};
@@ -33,14 +33,21 @@ VertexInputDescription Vertex::getVertexDescription() {
     color_attribute.format = VK_FORMAT_R32G32B32_SFLOAT;
     color_attribute.offset = offsetof(Vertex, color);
 
+    VkVertexInputAttributeDescription uv_attribute {};
+    uv_attribute.binding = 0;
+    uv_attribute.location = 3;
+    uv_attribute.format = VK_FORMAT_R32G32_SFLOAT;
+    uv_attribute.offset = offsetof(Vertex, uv);
+
     description.attributes.push_back(position_attribute);
     description.attributes.push_back(normal_attribute);
     description.attributes.push_back(color_attribute);
+    description.attributes.push_back(uv_attribute);
     
     return description;
 }
 
-bool Mesh::loadFromObj(const char* file_name) {
+bool Mesh::load_from_obj(const char* file_name, const char* dir_name) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -48,7 +55,7 @@ bool Mesh::loadFromObj(const char* file_name) {
     std::string warn;
     std::string err;
 
-    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, file_name, nullptr);
+    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, file_name, dir_name);
     if (!warn.empty()) {
         std::cout << "Warn: " << warn << std::endl;
     }
@@ -74,6 +81,9 @@ bool Mesh::loadFromObj(const char* file_name) {
                 tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
                 tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
 
+                tinyobj::real_t ux = attrib.texcoords[2 * idx.texcoord_index + 0];
+                tinyobj::real_t uy = attrib.texcoords[2 * idx.texcoord_index + 1];
+
                 Vertex new_vert;
                 new_vert.position.x = vx;
                 new_vert.position.y = vy;
@@ -84,6 +94,9 @@ bool Mesh::loadFromObj(const char* file_name) {
                 new_vert.normal.z = nz;
 
                 new_vert.color = new_vert.normal;
+
+                new_vert.uv.x = ux;
+                new_vert.uv.y = 1 - uy;
 
                 _vertices.push_back(new_vert);
             }

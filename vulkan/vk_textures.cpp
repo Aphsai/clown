@@ -5,7 +5,7 @@
 #include "vk_init.hpp"
 #include "vk_textures.hpp"
 
-bool vk_util::loadImageFromFile(VulkanEngine& engine, const char* file, AllocatedImage& out_image) {
+bool vk_util::load_image_from_file(VulkanEngine& engine, const char* file, AllocatedImage& out_image) {
     int tex_width;
     int tex_height;
     int tex_channels;
@@ -21,7 +21,7 @@ bool vk_util::loadImageFromFile(VulkanEngine& engine, const char* file, Allocate
     VkDeviceSize image_size = tex_width * tex_height * 4;
     VkFormat image_format = VK_FORMAT_R8G8B8A8_UNORM;
 
-    AllocatedBuffer staging_buffer = engine.createBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    AllocatedBuffer staging_buffer = engine.create_buffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
     void* data;
     vmaMapMemory(engine._allocator, staging_buffer._allocation, &data);
@@ -35,7 +35,7 @@ bool vk_util::loadImageFromFile(VulkanEngine& engine, const char* file, Allocate
     image_extent.height = static_cast<uint32_t> (tex_height);
     image_extent.depth = 1;
 
-    VkImageCreateInfo d_img_info = vk_init::imageCreateInfo(image_format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, image_extent);
+    VkImageCreateInfo d_img_info = vk_init::image_create_info(image_format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, image_extent);
 
     AllocatedImage new_image;
     VmaAllocationCreateInfo d_img_alloc_info {};
@@ -43,7 +43,7 @@ bool vk_util::loadImageFromFile(VulkanEngine& engine, const char* file, Allocate
 
     vmaCreateImage(engine._allocator, &d_img_info, &d_img_alloc_info, &new_image._image, &new_image._allocation, nullptr);
 
-    engine.immediateSubmit(
+    engine.immediate_submit(
             [&](VkCommandBuffer cmd) {
                 VkImageSubresourceRange range;
                 range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

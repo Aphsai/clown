@@ -4,5 +4,5 @@
 #include "vk_engine.hpp"
 
 namespace vk_util {
-    bool loadImageFromFile(VulkanEngine& engine, const char* file, AllocatedImage& out_image);
+    bool load_image_from_file(VulkanEngine& engine, const char* file, AllocatedImage& out_image);
 }

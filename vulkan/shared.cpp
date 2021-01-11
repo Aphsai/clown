@@ -1,6 +1,6 @@
 #include "shared.hpp"
 
-void errorCheck( VkResult result )
+void error_check( VkResult result )
 {
 	if(result < 0) {
 		switch(result) {

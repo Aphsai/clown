@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <glm/vec3.hpp>
+#include <glm/vec2.hpp>
 
 struct VertexInputDescription {
     std::vector<VkVertexInputBindingDescription> bindings;
@@ -16,15 +17,16 @@ struct Vertex {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec3 color;
+    glm::vec2 uv;
 
-    static VertexInputDescription getVertexDescription();
+    static VertexInputDescription get_vertex_description();
 };
 
 struct Mesh {
     std::vector<Vertex> _vertices;
     AllocatedBuffer _vertex_buffer;
 
-    bool loadFromObj(const char* file_name);
+    bool load_from_obj(const char* file_name, const char* dir_name);
 };
 
 

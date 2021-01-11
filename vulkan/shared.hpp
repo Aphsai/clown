@@ -4,4 +4,4 @@
 #include <assert.h>
 #include <fstream>
 
-void errorCheck(VkResult result);
+void error_check(VkResult result);
