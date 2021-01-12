@@ -60,7 +60,7 @@ void main() {
         auto start_time = std::chrono::high_resolution_clock::now();
         physics_system->update(dt);
         auto stop_time = std::chrono::high_resolution_clock::now();
-        dt = std::chrono::duration(float, std::chrono::seconds::period>(stop_time - start_time).count();
+        dt = std::chrono::duration<float, std::chrono::seconds::period>(stop_time - start_time).count();
     }
 
 }
