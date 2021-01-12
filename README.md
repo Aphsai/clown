@@ -1,4 +1,4 @@
-# clown
+# Clown
 
 ## Entity Component System
 
