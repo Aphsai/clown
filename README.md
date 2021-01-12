@@ -1,4 +1,4 @@
-# WIP: clown
+# clown
 
 ## Entity Component System
 
@@ -18,9 +18,10 @@ struct Velocity {
 Example System:
 ```cpp
 extern Coordinator coord;
+
 void PhysicsSystem::update(float dt) {
     for (auto const& entity : entities) {
-        auto constt& gravity = coord.get_component<Gravity>(entity);
+        auto const& gravity = coord.get_component<Gravity>(entity);
         auto& velocity = coord.get_component<Velocity>(entity);
 
         velocity.velocity += gravity.force * dt;
@@ -28,7 +29,7 @@ void PhysicsSystem::update(float dt) {
 }
 ```
 
-Main Loop:
+Example Main Loop:
 
 ```cpp
 void main() {
@@ -62,8 +63,17 @@ void main() {
         auto stop_time = std::chrono::high_resolution_clock::now();
         dt = std::chrono::duration<float, std::chrono::seconds::period>(stop_time - start_time).count();
     }
-
 }
 ```
 
 ## Vulkan
+
+All the rendering is done using Vulkan, the boilerplate by `VkBootstrap`, obj loading through `tinyobjloader` and texture loading through `stb_image`
+
+Here is what's finished:
+- [X] Initialization 
+- [X] Graphics Pipeline
+- [X] Meshes
+- [X] Buffers, Shader I/O
+- [X] Textures
+- [ ] Integration with ECS
