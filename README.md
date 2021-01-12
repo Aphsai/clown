@@ -1,11 +1,11 @@
 # WIP: clown
 
-##Entity Component System
+## Entity Component System
 
 In order to ease game development on a non graphical user interface, an entity-component-system architecture was chosen and implemented. It's managed through the coordinator class and an example of its usage and conciseness can be seen:
 
 Example Components:
-```
+```cpp
 struct Gravity {
     glm::vec3 force;
 };
@@ -16,7 +16,7 @@ struct Velocity {
 ```
 
 Example System:
-```
+```cpp
 extern Coordinator coord;
 void PhysicsSystem::update(float dt) {
     for (auto const& entity : entities) {
@@ -30,7 +30,7 @@ void PhysicsSystem::update(float dt) {
 
 Main Loop:
 
-```
+```cpp
 void main() {
     Coordinator coord;
 
@@ -66,4 +66,4 @@ void main() {
 }
 ```
 
-##Vulkan
+## Vulkan
