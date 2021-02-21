@@ -288,7 +288,8 @@ void VulkanEngine::init_descriptors() {
     std::vector<VkDescriptorPoolSize> sizes = { 
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 }
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 }
     };
 
     VkDescriptorSetLayoutBinding object_bind = vk_init::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
@@ -301,7 +302,6 @@ void VulkanEngine::init_descriptors() {
     set_to_info.pBindings = &object_bind;
 
     vkCreateDescriptorSetLayout(_device, &set_to_info, nullptr, &_object_set_layout);
-
 
     VkDescriptorPoolCreateInfo pool_info {};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -328,6 +328,17 @@ void VulkanEngine::init_descriptors() {
     set_info.pBindings = bindings;
 
     vkCreateDescriptorSetLayout(_device, &set_info, nullptr, &_global_set_layout);
+
+    VkDescriptorSetLayoutBinding texture_binding = vk_init::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+
+    VkDescriptorSetLayoutCreateInfo set_3_info {};
+    set_3_info.bindingCount = 1;
+    set_3_info.flags = 0;
+    set_3_info.pNext = nullptr;
+    set_3_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    set_3_info.pBindings = &texture_binding;
+
+    vkCreateDescriptorSetLayout(_device, &set_3_info, nullptr, &_single_texture_set_layout);
     
     const int MAX_OBJECTS = 10000;
     for (int x = 0; x < FRAME_OVERLAP; x++) {
@@ -378,6 +389,7 @@ void VulkanEngine::init_descriptors() {
 }
 
 void VulkanEngine::init_scene() {
+
     RenderObject empire;
 
     empire.mesh = get_mesh("empire");
@@ -385,6 +397,37 @@ void VulkanEngine::init_scene() {
     empire.transform_matrix = glm::translate(glm::vec3 {5, -10, 0});
 
     _renderables.push_back(empire);
+
+    
+    Material* textured_mat = get_material("textured_mesh");
+
+    VkDescriptorSetAllocateInfo alloc_info {};
+    alloc_info.pNext = nullptr;
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool = _descriptor_pool;
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.pSetLayouts - &_single_texture_set_layout;
+
+    vkAllocateDescriptorSets(_device, &alloc_info, &textured_mat->texture_set);
+
+    VkSamplerCreateInfo sampler_info = vk_init::sampler_create_info(VK_FILTER_NEAREST);
+    VkSampler blocky_sampler;
+    vkCreateSampler(_device, &sampler_info, nullptr, &blocky_sampler);
+
+    _main_deletion_queue.push_function(
+            [=]() {
+                vkDestroySampler(_device, blocky_sampler, nullptr);
+            }
+    );
+
+    VkDescriptorImageInfo image_buffer_info;
+    image_buffer_info.sampler = blocky_sampler;
+    image_buffer_info.imageView = _loaded_textures["empire_diffuse"].image_view;
+    image_buffer_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet texture = vk_init::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textured_mat->texture_set, &image_buffer_info, 0);
+
+    vkUpdateDescriptorSets(_device, 1, &texture, 0, nullptr);
 }
 
 
@@ -791,6 +834,10 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* objects, int 
             VkDeviceSize offset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &object.mesh->_vertex_buffer._buffer, &offset);
             last_mesh = object.mesh;
+
+            if (object.material->texture_set != VK_NULL_HANDLE) {
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline_layout, 2, 1, &object.material->texture_set, 0, nullptr);
+            }
         }
 
         vkCmdDraw(cmd, object.mesh->_vertices.size(), 1, 0, 0);
@@ -905,3 +952,6 @@ Mesh* VulkanEngine::get_mesh(const std::string& name) {
 FrameData& VulkanEngine::get_current_frame() {
     return _frames[_frame_number % FRAME_OVERLAP];
 }
+
+
+

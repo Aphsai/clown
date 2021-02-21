@@ -61,6 +61,7 @@ struct FrameData {
 struct Material {
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
+    VkDescriptorSet texture_set {VK_NULL_HANDLE};
 };
 
 struct RenderObject {
@@ -151,6 +152,7 @@ struct VulkanEngine {
     AllocatedImage _depth_image;
     VkPipelineLayout _triangle_pipeline_layout;
     VkPipeline _triangle_pipeline;
+    VkDescriptorSetLayout _single_texture_set_layout;
     // <++>
 
     Window* window; 

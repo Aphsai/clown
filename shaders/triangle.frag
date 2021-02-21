@@ -13,7 +13,9 @@ layout(set = 0, binding = 1) uniform SceneData {
     vec4 sunlight_color;
 } scene_data;
 
-void main() {
+layout(set = 2, binding = 0) uniform sampler2D tex;
 
-    out_frag_color = vec4(tex_coord.x, tex_coord.y, 0.5f, 1.0f);
+void main() {
+    vec3 color = texture(tex, tex_coord).xyz;
+    out_frag_color = vec4(color, 1.0f);
 }
