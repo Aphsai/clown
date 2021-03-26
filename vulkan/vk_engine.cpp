@@ -391,7 +391,6 @@ void VulkanEngine::init_descriptors() {
 void VulkanEngine::init_scene() {
 
     RenderObject empire;
-
     empire.mesh = get_mesh("empire");
     empire.material = get_material("textured_mesh");
     empire.transform_matrix = glm::translate(glm::vec3 {5, -10, 0});
@@ -406,9 +405,9 @@ void VulkanEngine::init_scene() {
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.descriptorPool = _descriptor_pool;
     alloc_info.descriptorSetCount = 1;
-    alloc_info.pSetLayouts - &_single_texture_set_layout;
+    alloc_info.pSetLayouts = &_single_texture_set_layout;
 
-    vkAllocateDescriptorSets(_device, &alloc_info, &textured_mat->texture_set);
+    std::cout << vkAllocateDescriptorSets(_device, &alloc_info, &(textured_mat->texture_set)) << std::endl;
 
     VkSamplerCreateInfo sampler_info = vk_init::sampler_create_info(VK_FILTER_NEAREST);
     VkSampler blocky_sampler;
@@ -541,26 +540,28 @@ void VulkanEngine::init_pipelines() {
         std::cout << "Triangle vertex shader successfully loaded" << std::endl;
     }
 
+    PipelineBuilder pipeline_builder;
+    pipeline_builder._shader_stages.push_back(vk_init::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triangle_vert_shader));
+    pipeline_builder._shader_stages.push_back(vk_init::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triangle_frag_shader));
+
     VkPipelineLayoutCreateInfo pipeline_layout_info = vk_init::pipeline_layout_create_info();
     
     VkPushConstantRange push_constant;
     push_constant.offset = 0;
     push_constant.size = sizeof(MeshPushConstants);
-
     push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
     pipeline_layout_info.pPushConstantRanges = &push_constant;
     pipeline_layout_info.pushConstantRangeCount = 1;
     
-    VkDescriptorSetLayout set_layouts[] = { _global_set_layout, _object_set_layout };
-    pipeline_layout_info.setLayoutCount = 2;
+    VkDescriptorSetLayout set_layouts[] = { _global_set_layout, _object_set_layout, _single_texture_set_layout };
+    pipeline_layout_info.setLayoutCount = 3;
     pipeline_layout_info.pSetLayouts = set_layouts;
 
-    error_check(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_triangle_pipeline_layout));
-
-    PipelineBuilder pipeline_builder;
+    VkPipelineLayout pipeline_layout;
+    error_check(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &pipeline_layout));
 
     pipeline_builder._vertex_input_info = vk_init::vertex_input_state_create_info();
-
     pipeline_builder._input_assembly = vk_init::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
     pipeline_builder._viewport.x = 0.0f;
@@ -579,7 +580,7 @@ void VulkanEngine::init_pipelines() {
 
     pipeline_builder._color_blend_attachment = vk_init::color_blend_attachment_state();
 
-    pipeline_builder._pipeline_layout = _triangle_pipeline_layout;
+    pipeline_builder._pipeline_layout = pipeline_layout;
 
     pipeline_builder._depth_stencil = vk_init::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
@@ -589,19 +590,16 @@ void VulkanEngine::init_pipelines() {
     pipeline_builder._vertex_input_info.pVertexBindingDescriptions = vertex_description.bindings.data();
     pipeline_builder._vertex_input_info.vertexBindingDescriptionCount = vertex_description.bindings.size();
 
-    pipeline_builder._shader_stages.push_back(vk_init::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triangle_vert_shader));
-    pipeline_builder._shader_stages.push_back(vk_init::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triangle_frag_shader));
-
-    _triangle_pipeline = pipeline_builder.build_pipeline(_device, _render_pass);
-    create_material(_triangle_pipeline, _triangle_pipeline_layout, "textured_mesh");
+    VkPipeline textured_pipeline = pipeline_builder.build_pipeline(_device, _render_pass);
+    create_material(textured_pipeline, pipeline_layout, "textured_mesh");
 
     vkDestroyShaderModule(_device, triangle_frag_shader, nullptr);
     vkDestroyShaderModule(_device, triangle_vert_shader, nullptr);
 
     _main_deletion_queue.push_function(
             [=]() {
-                vkDestroyPipeline(_device, _triangle_pipeline, nullptr);
-                vkDestroyPipelineLayout(_device, _triangle_pipeline_layout, nullptr);
+                vkDestroyPipeline(_device, textured_pipeline, nullptr);
+                vkDestroyPipelineLayout(_device, pipeline_layout, nullptr);
             }
     );
     // <++>
@@ -731,6 +729,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     VkPipelineViewportStateCreateInfo viewport_state {};
     viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewport_state.pNext = nullptr;
+
     viewport_state.viewportCount = 1;
     viewport_state.pViewports = &_viewport;
     viewport_state.scissorCount = 1;
@@ -739,6 +738,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     VkPipelineColorBlendStateCreateInfo color_blending {};
     color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     color_blending.pNext = nullptr;
+
     color_blending.logicOpEnable = VK_FALSE;
     color_blending.logicOp = VK_LOGIC_OP_COPY;
     color_blending.attachmentCount = 1;
@@ -765,9 +765,9 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &new_pipeline) != VK_SUCCESS) {
         std::cout << "failed to create pipeline" << std::endl;
         return VK_NULL_HANDLE;
-    } else {
-        return new_pipeline;
     }
+
+    return new_pipeline;
 }
 
 void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* objects, int count) {
@@ -895,8 +895,14 @@ size_t VulkanEngine::pad_uniform_buffer_size(size_t original_size) {
 void VulkanEngine::load_images() {
     Texture lost_empire;
     vk_util::load_image_from_file(*this, "./assets/lost_empire-RGBA.png", lost_empire.image);
-    VkImageViewCreateInfo image_info = vk_init::image_view_create_info(VK_FORMAT_R8G8B8A8_UNORM, lost_empire.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageViewCreateInfo image_info = vk_init::image_view_create_info(VK_FORMAT_R8G8B8A8_SRGB, lost_empire.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
     vkCreateImageView(_device, &image_info, nullptr, &lost_empire.image_view);
+
+    _main_deletion_queue.push_function(
+            [=]() {
+                vkDestroyImageView(_device, lost_empire.image_view, nullptr);
+            }
+    );
     _loaded_textures["empire_diffuse"] = lost_empire;
 }
 

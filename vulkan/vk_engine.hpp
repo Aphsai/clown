@@ -150,8 +150,6 @@ struct VulkanEngine {
 
     // <++>  tmp
     AllocatedImage _depth_image;
-    VkPipelineLayout _triangle_pipeline_layout;
-    VkPipeline _triangle_pipeline;
     VkDescriptorSetLayout _single_texture_set_layout;
     // <++>
 
@@ -184,5 +182,4 @@ struct VulkanEngine {
     void cleanup();
     void draw();
     void run();
-
 };

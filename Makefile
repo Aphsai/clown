@@ -10,9 +10,8 @@ CFLAGS = -std=c++17 -I$(VULKAN_SDK)/include
 LDFLAGS = -g -L$(VULKAN_SDK)/lib `pkg-config --static --libs glfw3` -lvulkan
 CC := g++
 
-$(PROG): $(OBJS) $(SPIRVS)
+$(PROG): $(OBJS) 
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
-
 
 %.cpp.o: %.cpp
 	$(CC) -MMD -MP $(CFLAGS) -c $< -o $@ $(LDFLAGS)
