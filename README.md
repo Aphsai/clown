@@ -66,6 +66,8 @@ void main() {
 }
 ```
 
+This ECS implementation was heavily inspired by: https://austinmorlan.com/posts/entity_component_system/
+
 ## Vulkan
 
 All the rendering is done using Vulkan, the boilerplate by `VkBootstrap`, obj loading through `tinyobjloader` and texture loading through `stb_image`
