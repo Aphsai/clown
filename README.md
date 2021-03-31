@@ -39,7 +39,7 @@ void main() {
     coordinator.register_component<Gravity>();
     coordinator.register_component<Velocity>();
 
-    auto physics_system = coordinator.register_system<physics_system>();
+    auto physics_system = coordinator.register_system<PhysicsSystem>();
 
     Signature signature;
     signature.set(coordinator.get_component_type<Gravity>());
