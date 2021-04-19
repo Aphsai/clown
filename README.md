@@ -50,7 +50,7 @@ void main() {
     std::vector<Entity> entities (MAX_ENTITIES);
 
     for (auto& entity : entities) {
-        entity = coord.create_entity();
+        entity = coordinator.create_entity();
         coordinator.add_component(entity, Gravity { glm::vec3(0.0f, -9.81f, 0.0f) });
         coordinator.add_component(entity, Velocity { glm::vec3(0.0f, 0.0f, 0.0f) });
     }
