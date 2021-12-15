@@ -1,13 +1,17 @@
-#include "entity-manager.hpp"
+#include "entity_manager.hpp"
+#include <iostream>
 #include <assert.h>
 
 EntityManager::EntityManager() {
     for (Entity entity = 0; entity < MAX_ENTITIES; entity++) {
         available_entities.push(entity);
     }
+
+    living_entity_count = 0;
 }
 
 Entity EntityManager::create_entity() {
+    std::cout << living_entity_count << std::endl;
     assert(living_entity_count < MAX_ENTITIES && "Too many entities exist.");
     Entity id = available_entities.front();
     available_entities.pop();

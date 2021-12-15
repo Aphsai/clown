@@ -181,5 +181,6 @@ struct VulkanEngine {
     void init();
     void cleanup();
     void draw();
-    void run();
+    void update();
+
 };

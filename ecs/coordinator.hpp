@@ -1,8 +1,8 @@
 #pragma once
 #include "ecs.hpp"
-#include "system-manager.hpp"
-#include "entity-manager.hpp"
-#include "component-manager.hpp"
+#include "system_manager.hpp"
+#include "entity_manager.hpp"
+#include "component_manager.hpp"
 
 class Coordinator {
     public:
@@ -52,7 +52,7 @@ class Coordinator {
 
         template<typename T>
         inline ComponentType get_component_type() {
-            return component_manager->get_component<T>();
+            return component_manager->get_component_type<T>();
         }
 
         template<typename T>

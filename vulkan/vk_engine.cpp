@@ -605,14 +605,9 @@ void VulkanEngine::init_pipelines() {
     // <++>
 }
 
-void VulkanEngine::run() {
-    bool run = true;
-    while(run) {
-        window->update();
-        run = window->window_should_run;
-        draw();
-    }
-
+void VulkanEngine::update() {
+    window->update();
+    draw();
 }
 
 
@@ -934,25 +929,19 @@ Material* VulkanEngine::create_material(VkPipeline pipeline, VkPipelineLayout la
     mat.pipeline = pipeline;
     mat.pipeline_layout = layout;
     _materials[name] = mat;
-    return &_materials[name];
+    return &(_materials[name]);
 }
 
 Material* VulkanEngine::get_material(const std::string& name) {
     auto it = _materials.find(name);
-    if (it == _materials.end()) {
-        return nullptr;
-    }
-
-    return &(*it).second;
+    assert(it != _materials.end() && "Failed to find material matching name");
+    return &(it->second);
 }
 
 Mesh* VulkanEngine::get_mesh(const std::string& name) {
     auto it = _meshes.find(name);
-    if (it == _meshes.end()) {
-        return nullptr;
-    }
-
-    return &(*it).second;
+    assert(it != _meshes.end() && "Failed to find mesh matching name");
+    return &(it->second);
 }
 
 FrameData& VulkanEngine::get_current_frame() {

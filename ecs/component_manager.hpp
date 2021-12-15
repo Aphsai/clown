@@ -1,6 +1,6 @@
 #pragma once
 #include "ecs.hpp"
-#include "component-array.hpp"
+#include "component_array.hpp"
 #include <unordered_map>
 #include <assert.h>
 #include <memory>
