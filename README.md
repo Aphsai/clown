@@ -33,26 +33,26 @@ Example Main Loop:
 
 ```cpp
 void main() {
-    Coordinator coord;
+    Coordinator coordinator;
 
-    coord.init(); // Initializes entity manager, system manager and component manager
+    coordinator.init(); // Initializes entity manager, system manager and component manager
     coordinator.register_component<Gravity>();
     coordinator.register_component<Velocity>();
 
-    auto physics_system = coordinator.register_system<physics_system>();
+    auto physics_system = coordinator.register_system<PhysicsSystem>();
 
     Signature signature;
-    signature.set(coord.get_component_type<Gravity>());
-    signature.set(coord.get_component_type<Velocity>());
+    signature.set(coordinator.get_component_type<Gravity>());
+    signature.set(coordinator.get_component_type<Velocity>());
 
     coordinator.set_system_signature<PhysicsSystem>(signature); // Identify which components are going to be used in the system
 
     std::vector<Entity> entities (MAX_ENTITIES);
 
     for (auto& entity : entities) {
-        entity = coord.create_entity();
-        coord.add_component(entity, Gravity { glm::vec3(0.0f, -9.81f, 0.0f) });
-        coord.add_component(entity, Velocity { glm::vec3(0.0f, 0.0f, 0.0f) });
+        entity = coordinator.create_entity();
+        coordinator.add_component(entity, Gravity { glm::vec3(0.0f, -9.81f, 0.0f) });
+        coordinator.add_component(entity, Velocity { glm::vec3(0.0f, 0.0f, 0.0f) });
     }
 
     float dt = 0.0f;
@@ -65,6 +65,8 @@ void main() {
     }
 }
 ```
+
+This ECS implementation was heavily inspired by: https://austinmorlan.com/posts/entity_component_system/
 
 ## Vulkan
 
